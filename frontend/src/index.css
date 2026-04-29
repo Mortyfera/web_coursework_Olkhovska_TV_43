@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #FFC7A5;   
+    --color-secondary: #4C5A4E; 
+    --color-background: #ffffff; 
+  }
+
+  [data-theme="plum-parchment"] {
+    --color-primary: #CAD183;   
+    --color-secondary: #66023C; 
+    --color-background: #ffffff;
+  }
+
+  [data-theme="midnight-lamp"] {
+    --color-primary: #003631;   
+    --color-secondary: #FFEDA8; 
+    --color-background: #001513;
+  }
+
+  [data-theme="chapter-by-the-sea"] {
+    --color-primary: #FFEBAF;   
+    --color-secondary: #4C9DB0; 
+    --color-background: #ffffff;
+  }
+
+  [data-theme="rainy-romance"] {
+    --color-primary: #7D99A3;   
+    --color-secondary: #FFCDC1; 
+    --color-background: #1A2429;
+  }
+
+  [data-theme="morning-pages"] {
+    --color-primary: #DEF1E8;   
+    --color-secondary: #EBAE95; 
+    --color-background: #FAFAFA;
+  }
+
+  [data-theme="typewriter-ink"] {
+    --color-primary: #C2D8C4;   
+    --color-secondary: #222222; 
+    --color-background: #F9F9F9;
+  }
+
+  [data-theme="old-library"] {
+    --color-primary: #37585B;   
+    --color-secondary: #DDA15E; 
+    --color-background: #111C1D;
+  }
+
+  [data-theme="terracotta-tales"] {
+    --color-primary: #E2725B;   
+    --color-secondary: #F7E7CE; 
+    --color-background: #2C130E;
+  }
+
+  [data-theme="velvet-bookmark"] {
+    --color-primary: #CB4154;   
+    --color-secondary: #FAF0E6; 
+    --color-background: #2B0D11;
+  }
+
+  [data-theme="golden-hour"] {
+    --color-primary: #FFBF00;   
+    --color-secondary: #EEFAFE; 
+    --color-background: #291E00;
+  }
+
+  [data-theme="olive-grove"] {
+    --color-primary: #6B8E23;   
+    --color-secondary: #F7E7CE; 
+    --color-background: #1B2408;
+  }
+
+  [data-theme="dark-academia"] {
+    --color-primary: #05472A;   
+    --color-secondary: #ECEAEC; 
+    --color-background: #02120A;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-secondary);
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+}
