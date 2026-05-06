@@ -56,6 +56,9 @@ export default function ClubDetailPage({ club, goBack }) {
   const [searchResults, setSearchResults] = useState([]);
   const [clubBooks, setClubBooks] = useState([]);
 
+  const [members, setMembers] = useState([]);
+  const [joinRequests, setJoinRequests] = useState([]);
+
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasCustomDesign, setHasCustomDesign] = useState(false);
   
@@ -67,12 +70,14 @@ export default function ClubDetailPage({ club, goBack }) {
   const [draggingId, setDraggingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
 
-  // ОНОВЛЕННЯ: Стейт для форми налаштувань
   const [settingsData, setSettingsData] = useState({
     name: '',
     description: '',
     format: 'ON',
-    is_open: true
+    is_open: true,
+    admin_can_edit_design: true,
+    admin_can_manage_books: true,
+    admin_can_remove_members: false
   });
   
   const containerRef = useRef(null);
@@ -102,14 +107,19 @@ export default function ClubDetailPage({ club, goBack }) {
       setClubBooks(club.books);
     }
 
-    // Заповнюємо форму налаштувань поточними даними
     if (club) {
       setSettingsData({
         name: club.name || '',
         description: club.description || '',
         format: club.format || 'ON',
-        is_open: club.is_open !== undefined ? club.is_open : true
+        is_open: club.is_open !== undefined ? club.is_open : true,
+        admin_can_edit_design: club.admin_can_edit_design !== undefined ? club.admin_can_edit_design : true,
+        admin_can_manage_books: club.admin_can_manage_books !== undefined ? club.admin_can_manage_books : true,
+        admin_can_remove_members: club.admin_can_remove_members !== undefined ? club.admin_can_remove_members : false,
       });
+      
+      setMembers(club.members_details || []);
+      setJoinRequests(club.join_requests || []);
     }
   }, [club]);
 
@@ -203,7 +213,6 @@ export default function ClubDetailPage({ club, goBack }) {
     .catch(err => console.error("Помилка мережі:", err));
   };
 
-  // ОНОВЛЕННЯ: Функція збереження налаштувань клубу
   const handleSaveSettings = () => {
     const token = localStorage.getItem('token');
     
@@ -223,6 +232,85 @@ export default function ClubDetailPage({ club, goBack }) {
       }
     })
     .catch(err => console.error("Помилка мережі:", err));
+  };
+
+  const handleRequestAction = (requestId, action) => {
+    const token = localStorage.getItem('token');
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/requests/${requestId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${token}`
+      },
+      body: JSON.stringify({ action: action })
+    })
+    .then(res => {
+      if (res.ok) {
+        setJoinRequests(prev => prev.filter(req => req.id !== requestId));
+        if (action === 'accept') {
+          window.location.reload();
+        }
+      } else {
+        alert("Помилка обробки заявки.");
+      }
+    })
+    .catch(err => console.error(err));
+  };
+
+  const handleRemoveMember = (memberId) => {
+    if (!window.confirm("Дійсно видалити цього учасника?")) return;
+    const token = localStorage.getItem('token');
+    
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/members/${memberId}/`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Token ${token}` }
+    })
+    .then(res => {
+      if (res.ok) {
+        setMembers(prev => prev.filter(m => m.id !== memberId));
+      } else {
+        alert("Не вдалося видалити учасника.");
+      }
+    })
+    .catch(err => console.error(err));
+  };
+
+  const handlePromoteMember = (memberId) => {
+    if (!window.confirm("Призначити цього учасника адміністратором?")) return;
+    const token = localStorage.getItem('token');
+    
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/members/${memberId}/promote/`, {
+      method: 'POST',
+      headers: { 'Authorization': `Token ${token}` }
+    })
+    .then(res => {
+      if (res.ok) {
+        alert("Учасника призначено адміністратором!");
+        window.location.reload();
+      } else {
+        alert("Не вдалося змінити роль учасника.");
+      }
+    })
+    .catch(err => console.error(err));
+  };
+
+  const handleDemoteMember = (memberId) => {
+    if (!window.confirm("Забрати права адміністратора у цього учасника?")) return;
+    const token = localStorage.getItem('token');
+    
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/members/${memberId}/demote/`, {
+      method: 'POST',
+      headers: { 'Authorization': `Token ${token}` }
+    })
+    .then(res => {
+      if (res.ok) {
+        alert("Права адміністратора успішно знято!");
+        window.location.reload();
+      } else {
+        alert("Не вдалося змінити роль учасника.");
+      }
+    })
+    .catch(err => console.error(err));
   };
 
   const handleResetDesign = () => {
@@ -579,7 +667,6 @@ export default function ClubDetailPage({ club, goBack }) {
   return (
     <div className="w-full h-screen flex flex-col bg-theme-background transition-colors duration-500 overflow-hidden relative">
       
-      {/* ШАПКА */}
       <div className="bg-theme-primary border-b border-theme-secondary/10 px-8 py-4 flex justify-between items-center z-50 shadow-sm shrink-0">
         <div className="flex items-center gap-8">
           <button onClick={goBack} className="text-theme-secondary hover:opacity-70 font-serif font-medium flex items-center gap-2">
@@ -594,9 +681,6 @@ export default function ClubDetailPage({ club, goBack }) {
               Простір клубу
             </button>
             
-            {/* ОНОВЛЕННЯ: Вкладки Полиця більше немає в меню! */}
-            
-            {/* ОНОВЛЕННЯ: Нова вкладка Налаштування тільки для адмінів */}
             {isAdmin && (
               <button 
                 onClick={() => { setActiveTab('settings'); setIsEditMode(false); }}
@@ -631,7 +715,6 @@ export default function ClubDetailPage({ club, goBack }) {
         </div>
       </div>
 
-      {/* ПРОСТІР (РОБОЧА ДОШКА) */}
       {activeTab === 'workspace' && (
         <div className="flex flex-1 overflow-hidden relative">
           
@@ -906,12 +989,10 @@ export default function ClubDetailPage({ club, goBack }) {
         </div>
       )}
 
-      {/* ВКЛАДКА ПОЛИЦІ (Список усіх обкладинок) */}
       {activeTab === 'bookshelf' && (
         <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
           <div className="max-w-6xl mx-auto relative">
             
-            {/* Кнопка повернення до простору */}
             <button 
               onClick={() => setActiveTab('workspace')}
               className="absolute -top-4 left-0 text-theme-secondary opacity-60 hover:opacity-100 font-serif font-bold transition-opacity"
@@ -968,7 +1049,6 @@ export default function ClubDetailPage({ club, goBack }) {
         </div>
       )}
 
-      {/* ДЕТАЛІ КНИГИ */}
       {activeTab === 'bookDetail' && selectedBook && (
         <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
           <div className="max-w-4xl mx-auto bg-theme-primary rounded-3xl p-10 shadow-lg border border-theme-secondary/10 relative">
@@ -1025,15 +1105,13 @@ export default function ClubDetailPage({ club, goBack }) {
         </div>
       )}
 
-      {/* ОНОВЛЕННЯ: ВКЛАДКА НАЛАШТУВАННЯ КЛУБУ */}
       {activeTab === 'settings' && isAdmin && (
         <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
-          <div className="max-w-4xl mx-auto bg-theme-primary rounded-3xl p-10 shadow-lg border border-theme-secondary/10">
+          <div className="max-w-5xl mx-auto bg-theme-primary rounded-3xl p-10 shadow-lg border border-theme-secondary/10">
             <h2 className="text-4xl font-serif font-bold text-theme-secondary mb-10 italic">Налаштування клубу</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               
-              {/* Секція 1: Інформація про клуб */}
               <div>
                 <h3 className="text-xl font-bold text-theme-secondary mb-6 border-b border-theme-secondary/10 pb-2">Загальна інформація</h3>
                 
@@ -1097,64 +1175,163 @@ export default function ClubDetailPage({ club, goBack }) {
                 </div>
               </div>
 
-              {/* Секція 2: Керування учасниками (Mockup) */}
               <div>
                 <h3 className="text-xl font-bold text-theme-secondary mb-6 border-b border-theme-secondary/10 pb-2">Керування учасниками</h3>
                 
                 {!settingsData.is_open && (
                   <div className="mb-8">
-                    <h4 className="font-bold text-theme-secondary mb-3 opacity-80 text-sm uppercase">Нові заявки (2)</h4>
-                    <div className="flex flex-col gap-2">
-                      {['Iryna Koval', 'Oleh Shevchenko'].map((name, i) => (
-                        <div key={i} className="flex justify-between items-center bg-theme-background border border-theme-secondary/20 p-3 rounded-md">
-                          <span className="font-serif font-bold text-theme-secondary">{name}</span>
-                          <div className="flex gap-2">
-                            <button className="text-green-600 bg-green-100 hover:bg-green-200 px-3 py-1 rounded text-xs font-bold transition-colors">Прийняти</button>
-                            <button className="text-red-600 bg-red-100 hover:bg-red-200 px-3 py-1 rounded text-xs font-bold transition-colors">Відхилити</button>
+                    <h4 className="font-bold text-theme-secondary mb-3 opacity-80 text-sm uppercase">Нові заявки ({joinRequests.length})</h4>
+                    
+                    {joinRequests.length === 0 ? (
+                      <p className="text-sm opacity-60 italic text-theme-secondary">Немає нових заявок.</p>
+                    ) : (
+                      <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                        {joinRequests.map((req) => (
+                          <div key={req.id} className="flex justify-between items-center bg-theme-background border border-theme-secondary/20 p-3 rounded-md">
+                            <span className="font-serif font-bold text-theme-secondary">{req.user?.username || req.username || 'Невідомий'}</span>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleRequestAction(req.id, 'accept')}
+                                className="text-green-600 bg-green-100 hover:bg-green-200 px-3 py-1 rounded text-xs font-bold transition-colors"
+                              >
+                                Прийняти
+                              </button>
+                              <button 
+                                onClick={() => handleRequestAction(req.id, 'reject')}
+                                className="text-red-600 bg-red-100 hover:bg-red-200 px-3 py-1 rounded text-xs font-bold transition-colors"
+                              >
+                                Відхилити
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <div>
                   <h4 className="font-bold text-theme-secondary mb-3 opacity-80 text-sm uppercase">Поточні учасники</h4>
                   <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
-                    {/* Fake admin */}
+                    
                     <div className="flex justify-between items-center bg-theme-secondary/5 border border-theme-secondary/10 p-3 rounded-md">
                       <div>
-                        <span className="font-serif font-bold text-theme-secondary">{currentUsername || 'Admin'}</span>
-                        <span className="ml-2 text-xs bg-theme-secondary text-theme-primary px-2 py-0.5 rounded-full">Власник</span>
+                        <span className="font-serif font-bold text-theme-secondary">{club?.creator_details?.username || 'Admin'}</span>
+                        <span className="ml-2 text-xs bg-theme-secondary text-white px-2 py-0.5 rounded-full">Власник</span>
                       </div>
                     </div>
                     
-                    {/* Fake members */}
-                    {['Maxym', 'Olena', 'Kyrylo', 'Nastya'].map((name, i) => (
-                      <div key={i} className="flex justify-between items-center bg-theme-background border border-theme-secondary/10 p-3 rounded-md">
-                        <span className="font-serif font-medium text-theme-secondary">{name}</span>
-                        <div className="flex gap-2">
-                          <button className="text-theme-secondary bg-theme-secondary/10 hover:bg-theme-secondary/20 px-2 py-1 rounded text-xs transition-colors" title="Зробити адміністратором">↑ Адмін</button>
-                          <button className="text-red-500 hover:text-red-700 px-2 py-1 rounded text-lg font-bold transition-colors" title="Видалити з клубу">×</button>
+                    {members.filter(m => m.username !== club?.creator_details?.username).length === 0 ? (
+                      <p className="text-sm opacity-60 italic text-theme-secondary mt-2">Більше немає учасників.</p>
+                    ) : (
+                      members
+                        .filter(m => m.username !== club?.creator_details?.username)
+                        .map((member) => (
+                        <div key={member.id} className="flex justify-between items-center bg-theme-background border border-theme-secondary/10 p-3 rounded-md">
+                          <span className="font-serif font-medium text-theme-secondary">{member.username}</span>
+                          
+                          <div className="flex gap-2 items-center">
+                            {member.role === 'AD' ? (
+                               <>
+                                 <span className="text-xs font-bold text-theme-secondary opacity-70 mr-2">Адмін</span>
+                                 {isOwner && (
+                                   <button 
+                                     onClick={() => handleDemoteMember(member.id)}
+                                     className="text-theme-secondary bg-theme-secondary/10 hover:bg-theme-secondary/20 px-2 py-1 rounded text-xs transition-colors mr-2" 
+                                     title="Забрати права адміністратора"
+                                   >
+                                     ↓ Зняти
+                                   </button>
+                                 )}
+                               </>
+                            ) : (
+                               <>
+                                 {isOwner && (
+                                   <button 
+                                     onClick={() => handlePromoteMember(member.id)}
+                                     className="text-theme-secondary bg-theme-secondary/10 hover:bg-theme-secondary/20 px-2 py-1 rounded text-xs transition-colors mr-2" 
+                                     title="Зробити адміністратором"
+                                   >
+                                     ↑ Адмін
+                                   </button>
+                                 )}
+                               </>
+                            )}
+
+                            <button 
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="text-red-500 hover:text-red-700 px-2 py-1 rounded text-lg font-bold transition-colors" 
+                              title="Видалити з клубу"
+                            >
+                              ×
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-12 border-t border-red-500/20 pt-6">
-                  <button className="w-full py-3 border border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors">
-                    Видалити клуб назавжди
+                {isOwner && (
+                  <div className="mt-12 border-t border-red-500/20 pt-6">
+                    <button className="w-full py-3 border border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors">
+                      Видалити клуб назавжди
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {isOwner && (
+                <div className="col-span-1 md:col-span-2 border-t border-theme-secondary/10 pt-8 mt-2">
+                  <h3 className="text-xl font-bold text-theme-secondary mb-4">Права адміністраторів</h3>
+                  <p className="text-sm opacity-70 mb-6 text-theme-secondary">
+                    Оберіть, що дозволено робити адміністраторам клубу (ці налаштування не стосуються власника):
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <label className="flex items-start gap-3 cursor-pointer group">
+                       <input 
+                         type="checkbox" 
+                         checked={settingsData.admin_can_edit_design} 
+                         onChange={(e) => setSettingsData({...settingsData, admin_can_edit_design: e.target.checked})} 
+                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
+                       />
+                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Редагувати дизайн простору клубу</span>
+                     </label>
+                     <label className="flex items-start gap-3 cursor-pointer group">
+                       <input 
+                         type="checkbox" 
+                         checked={settingsData.admin_can_manage_books} 
+                         onChange={(e) => setSettingsData({...settingsData, admin_can_manage_books: e.target.checked})} 
+                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
+                       />
+                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Керувати полицею (додавати/видаляти книги)</span>
+                     </label>
+                     <label className="flex items-start gap-3 cursor-pointer group">
+                       <input 
+                         type="checkbox" 
+                         checked={settingsData.admin_can_remove_members} 
+                         onChange={(e) => setSettingsData({...settingsData, admin_can_remove_members: e.target.checked})} 
+                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
+                       />
+                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Видаляти звичайних учасників</span>
+                     </label>
+                  </div>
+                  
+                  <button 
+                    onClick={handleSaveSettings} 
+                    className="mt-8 px-8 py-2 bg-theme-secondary/10 border border-theme-secondary/30 text-theme-secondary font-bold rounded-lg hover:bg-theme-secondary hover:text-theme-primary transition-colors shadow-sm"
+                  >
+                    Зберегти права
                   </button>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
         </div>
       )}
 
-      {/* МОДАЛКА ДОДАВАННЯ КНИГИ */}
       {isAddBookModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="bg-theme-primary text-theme-secondary p-8 rounded-2xl shadow-2xl w-full max-w-lg border border-theme-secondary/10 relative flex flex-col max-h-[80vh]">

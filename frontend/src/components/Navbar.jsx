@@ -39,7 +39,7 @@ export default function Navbar({ changeTheme, setCurrentPage, setSelectedArticle
                 
                 {isLoggedIn ? (
                   <>
-                    <button className="hover:opacity-70 transition-opacity font-medium">Профіль</button>
+                    <button onClick={() => setCurrentPage('profile')} className="hover:opacity-70 transition-opacity font-medium">Профіль</button>
                     <button onClick={handleLogout} className="hover:opacity-70 transition-opacity font-medium text-red-500">Вийти</button>
                   </>
                 ) : (
@@ -56,7 +56,10 @@ export default function Navbar({ changeTheme, setCurrentPage, setSelectedArticle
                 <img src={themeIcon} alt="Change Theme" className="w-9 h-9 object-contain mix-blend-multiply" />
               </button>
               
-              <button className="hover:scale-110 transition-transform" onClick={!isLoggedIn ? openAuthModal : undefined}>
+              <button 
+                className="hover:scale-110 transition-transform" 
+                onClick={() => isLoggedIn ? setCurrentPage('profile') : openAuthModal()}
+              >
                 <img src={profileIcon} alt="Profile" className="w-8 h-8 object-contain mix-blend-multiply" />
               </button>
 

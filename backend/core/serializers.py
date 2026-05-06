@@ -4,7 +4,7 @@ from .models import User, Genre, Book, UserBookshelf, Club, ClubMember, Meeting,
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'avatar_url']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name','avatar_url']
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,6 +23,15 @@ class UserBookshelfSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserBookshelf
         fields = ['id', 'user', 'book', 'book_details', 'status', 'added_at']
+        read_only_fields = ['user']
+
+class ClubMemberSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source='user', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = ClubMember
+        fields = ['id', 'user', 'username', 'user_details', 'club', 'role', 'joined_at']
 
 class ClubSerializer(serializers.ModelSerializer):
     creator_details = UserSerializer(source='creator', read_only=True)
@@ -41,15 +50,17 @@ class ClubSerializer(serializers.ModelSerializer):
         many=True, queryset=Book.objects.all(), source='books', write_only=True, required=False
     )
 
+    members_details = ClubMemberSerializer(source='clubmember_set', many=True, read_only=True)
+
     class Meta:
         model = Club
         fields = [
             'id', 'name', 'description', 'format', 'format_display', 'is_private', 
             'creator', 'creator_details', 'genres', 'genres_details',
             'members_count', 'next_meeting', 'location', 'currently_reading',
-            'custom_design', 'user_role', 'books', 'book_ids'
+            'custom_design', 'user_role', 'books', 'book_ids',
+            'members_details'
         ]
-
 
     def get_members_count(self, obj):
         return obj.clubmember_set.count()
@@ -79,13 +90,6 @@ class ClubSerializer(serializers.ModelSerializer):
             if member:
                 return member.role
         return None
-
-class ClubMemberSerializer(serializers.ModelSerializer):
-    user_details = UserSerializer(source='user', read_only=True)
-
-    class Meta:
-        model = ClubMember
-        fields = ['id', 'user', 'user_details', 'club', 'role', 'joined_at']
 
 class MeetingSerializer(serializers.ModelSerializer):
     book_details = BookSerializer(source='book', read_only=True)
