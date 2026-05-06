@@ -182,3 +182,18 @@ def activate_user(request, uidb64, token):
         return Response({'status': 'Акаунт активовано! Тепер ви можете увійти.'})
     else:
         return Response({'error': 'Посилання недійсне або термін його дії закінчився'}, status=400)
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+
+    if not user.check_password(old_password):
+        return Response({'error': 'Старий пароль введено неправильно.'}, status=400)
+
+    user.set_password(new_password)
+    user.save()
+
+    return Response({'message': 'Пароль успішно змінено!'})

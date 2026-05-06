@@ -118,6 +118,11 @@ export default function UserProfile({ goBack }) {
     setEditForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordForm(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     const token = localStorage.getItem('token');
@@ -138,10 +143,41 @@ export default function UserProfile({ goBack }) {
 
   const handleChangePassword = async () => {
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      alert("Паролі не збігаються!"); return;
+      alert("Нові паролі не збігаються!"); 
+      return;
     }
-    alert("Запит на зміну пароля відправлено.");
-    setIsChangingPassword(false);
+    if (!passwordForm.old_password || !passwordForm.new_password) {
+      alert("Будь ласка, заповніть всі поля.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+  
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/change-password/', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Token ${token}`, 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          old_password: passwordForm.old_password,
+          new_password: passwordForm.new_password
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Пароль успішно змінено!");
+        setIsChangingPassword(false);
+        setPasswordForm({ old_password: '', new_password: '', confirm_password: '' });
+      } else {
+        alert(`Помилка: ${data.error || 'Не вдалося змінити пароль'}`);
+      }
+    } catch (err) {
+      alert("Помилка з'єднання з сервером.");
+    }
   };
 
   if (isLoading) return <div className="p-20 text-center font-serif text-theme-secondary bg-theme-background h-screen">Завантаження...</div>;
@@ -265,12 +301,36 @@ export default function UserProfile({ goBack }) {
               <h3 className="text-xs uppercase tracking-widest font-bold text-theme-secondary opacity-40 mb-6">Безпека</h3>
               {isChangingPassword ? (
                 <div className="space-y-4 max-w-md bg-theme-background/30 p-6 rounded-2xl border border-theme-secondary/10 animate-fadeIn">
-                  <input type="password" placeholder="Старий пароль" className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" />
-                  <input type="password" placeholder="Новий пароль" className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" />
-                  <input type="password" placeholder="Підтвердіть пароль" className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" />
+                  <input 
+                    type="password" 
+                    name="old_password"
+                    value={passwordForm.old_password}
+                    onChange={handlePasswordChange}
+                    placeholder="Старий пароль" 
+                    className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" 
+                  />
+                  <input 
+                    type="password" 
+                    name="new_password"
+                    value={passwordForm.new_password}
+                    onChange={handlePasswordChange}
+                    placeholder="Новий пароль" 
+                    className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" 
+                  />
+                  <input 
+                    type="password" 
+                    name="confirm_password"
+                    value={passwordForm.confirm_password}
+                    onChange={handlePasswordChange}
+                    placeholder="Підтвердіть пароль" 
+                    className="w-full bg-theme-primary border border-theme-secondary/20 rounded-lg p-2 text-theme-secondary outline-none focus:border-theme-secondary" 
+                  />
                   <div className="flex gap-4 pt-2">
                     <button onClick={handleChangePassword} className="px-6 py-2 bg-theme-secondary text-theme-primary rounded-lg font-bold hover:opacity-90 transition-opacity">Оновити пароль</button>
-                    <button onClick={() => setIsChangingPassword(false)} className="px-6 py-2 text-theme-secondary opacity-60 hover:opacity-100 transition-opacity">Скасувати</button>
+                    <button onClick={() => {
+                      setIsChangingPassword(false);
+                      setPasswordForm({ old_password: '', new_password: '', confirm_password: '' });
+                    }} className="px-6 py-2 text-theme-secondary opacity-60 hover:opacity-100 transition-opacity">Скасувати</button>
                   </div>
                 </div>
               ) : (

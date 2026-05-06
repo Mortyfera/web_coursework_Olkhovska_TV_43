@@ -74,6 +74,7 @@ export default function ClubDetailPage({ club, goBack }) {
     name: '',
     description: '',
     format: 'ON',
+    currently_reading: '',
     is_open: true,
     admin_can_edit_design: true,
     admin_can_manage_books: true,
@@ -87,9 +88,19 @@ export default function ClubDetailPage({ club, goBack }) {
   const dragStart = useRef({ mouseX: 0, mouseY: 0, scrollX: 0, scrollY: 0, elX: 0, elY: 0 }); 
 
   useEffect(() => {
+    const currentMemberCount = club?.members_details?.length || club?.members_count || 0;
+
     if (club?.custom_design) {
       const design = club.custom_design;
-      setElements(design.elements || []);
+      
+      const updatedElements = (design.elements || []).map(el => {
+        if (el.type === 'info' && el.content && el.content.startsWith('Учасників:')) {
+          return { ...el, content: `Учасників: ${currentMemberCount}` };
+        }
+        return el;
+      });
+
+      setElements(updatedElements);
       setCustomBg(design.customBg || null);
       setBgPattern(design.bgPattern || 'dots');
       setBgColor(design.bgColor || 'transparent');
@@ -98,7 +109,7 @@ export default function ClubDetailPage({ club, goBack }) {
       setElements([
         { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 50, y: 50, scale: 1, rotation: 0 },
         { id: '2', type: 'book', content: club?.currently_reading || 'Поточна книга', x: 50, y: 150, scale: 1, rotation: 0 },
-        { id: '3', type: 'info', content: `Учасників: ${club?.members_count || 0}`, x: 50, y: 350, scale: 1, rotation: 0 }
+        { id: '3', type: 'info', content: `Учасників: ${currentMemberCount}`, x: 50, y: 350, scale: 1, rotation: 0 }
       ]);
       setHasCustomDesign(false);
     }
@@ -112,6 +123,7 @@ export default function ClubDetailPage({ club, goBack }) {
         name: club.name || '',
         description: club.description || '',
         format: club.format || 'ON',
+        currently_reading: club.currently_reading || '',
         is_open: club.is_open !== undefined ? club.is_open : true,
         admin_can_edit_design: club.admin_can_edit_design !== undefined ? club.admin_can_edit_design : true,
         admin_can_manage_books: club.admin_can_manage_books !== undefined ? club.admin_can_manage_books : true,
@@ -325,6 +337,7 @@ export default function ClubDetailPage({ club, goBack }) {
     })
     .then(res => {
       if (res.ok) {
+        const currentMemberCount = club?.members_details?.length || club?.members_count || 0;
         setHasCustomDesign(false);
         setIsEditMode(false);
         setCustomBg(null);
@@ -333,7 +346,7 @@ export default function ClubDetailPage({ club, goBack }) {
         setElements([
           { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 50, y: 50, scale: 1, rotation: 0 },
           { id: '2', type: 'book', content: club?.currently_reading || 'Поточна книга', x: 50, y: 150, scale: 1, rotation: 0 },
-          { id: '3', type: 'info', content: `Учасників: ${club?.members_count || 0}`, x: 50, y: 350, scale: 1, rotation: 0 }
+          { id: '3', type: 'info', content: `Учасників: ${currentMemberCount}`, x: 50, y: 350, scale: 1, rotation: 0 }
         ]);
       }
     });
@@ -529,9 +542,16 @@ export default function ClubDetailPage({ club, goBack }) {
         );
       
       case 'info':
+        let displayContent = el.content;
+        
+        if (typeof displayContent === 'string' && displayContent.startsWith('Учасників:')) {
+          const liveCount = members.length > 0 ? members.length : (club?.members_details?.length || club?.members_count || 0);
+          displayContent = `Учасників: ${liveCount}`;
+        }
+        
         return (
           <div className={`bg-theme-primary text-theme-secondary p-4 shadow-lg border border-theme-secondary/20 text-center font-medium backdrop-blur-sm bg-opacity-90 select-none whitespace-nowrap ${ringClass}`} style={baseStyle}>
-            {el.content}
+            {displayContent}
           </div>
         );
 
@@ -1145,6 +1165,23 @@ export default function ClubDetailPage({ club, goBack }) {
                       <option value="ON">Онлайн</option>
                       <option value="OF">Офлайн</option>
                       <option value="HY">Гібрид (Онлайн + Офлайн)</option>
+                    </select>
+                  </div>
+
+                  {/* НОВИЙ БЛОК: Вибір поточної книги */}
+                  <div>
+                    <label className="block text-sm text-theme-secondary opacity-80 mb-1">Поточна книга</label>
+                    <select 
+                      value={settingsData.currently_reading}
+                      onChange={(e) => setSettingsData({...settingsData, currently_reading: e.target.value})}
+                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary"
+                    >
+                      <option value="">Не обрано</option>
+                      {clubBooks.map(book => (
+                        <option key={book.id} value={book.title}>
+                          {book.title}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

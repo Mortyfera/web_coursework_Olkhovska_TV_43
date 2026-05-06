@@ -1,7 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function BookDetailPage({ book, goBack }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!book) return null;
+
+  const handleDelete = async () => {
+    const confirmDelete = window.confirm("Ви впевнені, що хочете видалити цю книгу з полиці?");
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/bookshelf/${book.id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok || response.status === 204) {
+        goBack(); 
+      } else {
+        const data = await response.json().catch(() => ({}));
+        alert(`Помилка видалення: ${data.detail || data.error || 'Невідома помилка'}`);
+      }
+    } catch (error) {
+      console.error('Помилка при видаленні:', error);
+      alert('Помилка з\'єднання з сервером');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="flex-1 w-full h-full overflow-y-auto p-4 sm:p-8 md:p-16 bg-theme-background transition-colors duration-500">
@@ -33,7 +65,6 @@ export default function BookDetailPage({ book, goBack }) {
             </div>
           </div>
 
-
           <div className="w-full md:w-2/3 flex flex-col">
             
             <h1 className="text-4xl sm:text-5xl font-bold font-serif italic text-theme-secondary mb-2 transition-colors duration-500">
@@ -54,10 +85,15 @@ export default function BookDetailPage({ book, goBack }) {
 
             <div className="mt-auto">
               <button 
-                onClick={() => alert('Тут буде логіка видалення книги з полиці')}
-                className="px-6 py-2.5 border border-red-500 text-red-500 font-medium rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className={`px-6 py-2.5 border border-red-500 font-medium rounded-lg transition-colors ${
+                  isDeleting 
+                    ? 'bg-red-500/50 text-white cursor-not-allowed border-red-500/50' 
+                    : 'text-red-500 hover:bg-red-500 hover:text-white'
+                }`}
               >
-                Видалити книгу з полиці
+                {isDeleting ? 'Видалення...' : 'Видалити книгу з полиці'}
               </button>
             </div>
             

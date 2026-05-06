@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 from .views import (
     UserViewSet, GenreViewSet, BookViewSet, 
     UserBookshelfViewSet, ClubViewSet, ClubMemberViewSet, MeetingViewSet,
-    NewsViewSet, login_view, register_view, activate_user 
+    NewsViewSet, login_view, register_view, activate_user, change_password
 )
 
 router = DefaultRouter()
@@ -23,7 +23,8 @@ urlpatterns = [
     path('', include(router.urls)),
     path('login/', login_view, name='login'),
     path('register/', register_view, name='register'),
-    
+    path('change-password/', change_password, name='change_password'),
+
     path('activate/<str:uidb64>/<str:token>/', activate_user, name='activate_user'),
 ]
 
