@@ -194,6 +194,41 @@ export default function MyBookshelfManager({
     }
   };
 
+  const handleStatusChange = async (e, shelfItemId, newStatus) => {
+    e.stopPropagation();
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/bookshelf/${shelfItemId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const updatedItem = await response.json();
+        setBooks(books.map(b => b.id === shelfItemId ? updatedItem : b));
+      } else {
+        alert("Помилка при оновленні статусу книги.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Не вдалося з'єднатися з сервером.");
+    }
+  };
+
+  const getStatusLabel = (statusStr) => {
+    switch (statusStr) {
+      case 'RD': return 'Прочитано';
+      case 'RG': return 'Читаю';
+      case 'TR': return 'У планах';
+      default: return 'Невідомо';
+    }
+  };
+
   const filteredCatalog = catalogBooks.filter(book => {
     if (!selectedGenre) return true;
     return book.genres?.some(g => {
@@ -258,14 +293,47 @@ export default function MyBookshelfManager({
                   >
                     <div className="aspect-[2/3] w-full rounded-md mb-4 overflow-hidden relative shadow-md border border-theme-secondary/20 bg-theme-secondary/10">
                       
+                      {!isClubMode && item.status && (
+                        <div className="absolute top-2 left-2 bg-theme-primary/95 text-theme-secondary text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded shadow-sm z-10 transition-opacity group-hover:opacity-0">
+                          {getStatusLabel(item.status)}
+                        </div>
+                      )}
+
                       {isAdmin && (
                         <button
                           onClick={(e) => handleRemoveBook(e, item)}
-                          className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm z-10 shadow-sm"
+                          className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm z-30 shadow-sm"
                           title="Видалити з полиці"
                         >
                           ✕
                         </button>
+                      )}
+
+                      {!isClubMode && (
+                        <div className="absolute inset-0 bg-theme-primary/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4 gap-2 z-20">
+                          <p className="text-theme-secondary font-bold font-serif mb-2 text-sm border-b border-theme-secondary/20 pb-1 w-full text-center">Змінити статус</p>
+                          
+                          <button 
+                            onClick={(e) => handleStatusChange(e, item.id, 'RD')} 
+                            className={`w-full py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-colors ${item.status === 'RD' ? 'bg-[#4A554E] text-white shadow-inner' : 'bg-theme-secondary/10 text-theme-secondary hover:bg-theme-secondary hover:text-theme-primary'}`}
+                          >
+                            Прочитано
+                          </button>
+                          
+                          <button 
+                            onClick={(e) => handleStatusChange(e, item.id, 'RG')} 
+                            className={`w-full py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-colors ${item.status === 'RG' ? 'bg-[#4A554E] text-white shadow-inner' : 'bg-theme-secondary/10 text-theme-secondary hover:bg-theme-secondary hover:text-theme-primary'}`}
+                          >
+                            Читаю
+                          </button>
+                          
+                          <button 
+                            onClick={(e) => handleStatusChange(e, item.id, 'TR')} 
+                            className={`w-full py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-colors ${item.status === 'TR' ? 'bg-[#4A554E] text-white shadow-inner' : 'bg-theme-secondary/10 text-theme-secondary hover:bg-theme-secondary hover:text-theme-primary'}`}
+                          >
+                            У планах
+                          </button>
+                        </div>
                       )}
 
                       {book.cover_image_url ? (
@@ -281,7 +349,7 @@ export default function MyBookshelfManager({
                       )}
                     </div>
                     
-                    <div className="mt-auto">
+                    <div className="mt-auto relative z-10">
                       <h3 className="font-bold font-serif text-base sm:text-lg text-theme-secondary line-clamp-2 leading-tight mb-1 transition-colors duration-500">
                         {book.title}
                       </h3>

@@ -52,6 +52,7 @@ class Club(models.Model):
     genres = models.ManyToManyField(Genre, related_name="clubs")
     custom_design = models.JSONField(blank=True, null=True, verbose_name="Кастомний дизайн")
     books = models.ManyToManyField('Book', related_name='clubs', blank=True, verbose_name="Книги клубу")
+    currently_reading = models.CharField(max_length=255, blank=True, null=True, verbose_name="Поточна книга")
 
     def __str__(self):
         return self.name

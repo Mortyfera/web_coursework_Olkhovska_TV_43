@@ -84,15 +84,18 @@ class ClubViewSet(viewsets.ModelViewSet):
         if not club.is_private:
             ClubMember.objects.create(user=user, club=club, role='MB')
             return Response({"status": "Ви успішно приєдналися до клубу!"}, status=status.HTTP_201_CREATED)
-        
         else:
             join_req, created = JoinRequest.objects.get_or_create(
                 user=user, 
                 club=club, 
-                status=JoinRequest.StatusChoices.PENDING
+                defaults={'status': JoinRequest.StatusChoices.PENDING}
             )
             if not created:
-                return Response({"error": "Заявку вже було надіслано раніше."}, status=status.HTTP_400_BAD_REQUEST)
+                if join_req.status == JoinRequest.StatusChoices.PENDING:
+                    return Response({"error": "Заявку вже було надіслано раніше."}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    join_req.status = JoinRequest.StatusChoices.PENDING
+                    join_req.save()
             
             return Response({"status": "Заявку на вступ надіслано! Очікуйте підтвердження."}, status=status.HTTP_200_OK)
 
@@ -106,11 +109,31 @@ class ClubViewSet(viewsets.ModelViewSet):
             join_req.status = JoinRequest.StatusChoices.ACCEPTED
             join_req.save()
             ClubMember.objects.get_or_create(user=join_req.user, club=club, role='MB')
+            
+            if join_req.user.email:
+                send_mail(
+                    subject=f"Заявку до клубу '{club.name}' схвалено!",
+                    message=f"Вітаємо, {join_req.user.username}!\n\nВашу заявку на вступ до книжкового клубу '{club.name}' було ухвалено. Тепер ви повноправний учасник!\n\nПриємного читання з MarginNotes!",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[join_req.user.email],
+                    fail_silently=True,
+                )
+
             return Response({"status": "Заявку прийнято, користувача додано."})
         
         elif action_choice == 'reject':
             join_req.status = JoinRequest.StatusChoices.REJECTED
             join_req.save()
+            
+            if join_req.user.email:
+                send_mail(
+                    subject=f"Заявку до клубу '{club.name}' відхилено",
+                    message=f"Вітаємо, {join_req.user.username}.\n\nНа жаль, адміністратор клубу '{club.name}' відхилив вашу заявку на вступ.\n\nНе засмучуйтесь, на платформі є ще багато інших цікавих клубів!",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[join_req.user.email],
+                    fail_silently=True,
+                )
+
             return Response({"status": "Заявку відхилено."})
         
         return Response({"error": "Невідома дія. Використовуйте 'accept' або 'reject'."}, status=status.HTTP_400_BAD_REQUEST)
@@ -225,7 +248,7 @@ def activate_user(request, uidb64, token):
     if user is not None and default_token_generator.check_token(user, token):
         user.is_active = True
         user.save()
-        return Response({'status': 'Акаунт активовано! Тепер ви ক্ষমতায় увійти.'})
+        return Response({'status': 'Акаунт активовано! Тепер ви можете увійти.'})
     else:
         return Response({'error': 'Посилання недійсне або термін його дії закінчився'}, status=400)
     

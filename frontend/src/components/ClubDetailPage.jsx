@@ -55,7 +55,6 @@ export default function ClubDetailPage({ club, goBack }) {
   const [selectedBook, setSelectedBook] = useState(null);
   
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [clubBooks, setClubBooks] = useState([]);
@@ -82,6 +81,12 @@ export default function ClubDetailPage({ club, goBack }) {
   const [elements, setElements] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+
+  const [meetingData, setMeetingData] = useState({
+    topic: 'Обговорення',
+    scheduled_at: '',
+    location_details: ''
+  });
 
   const [settingsData, setSettingsData] = useState({
     name: '',
@@ -135,7 +140,7 @@ export default function ClubDetailPage({ club, goBack }) {
         { id: '3', type: 'info_block', x: 60, y: 250, scale: 1, rotation: 0 },
         { id: '2', type: 'book', content: club?.currently_reading || 'Обираємо книгу', x: 60, y: 430, scale: 1, rotation: 0 },
         { id: 'shelf', type: 'bookshelf', x: 450, y: 400, scale: 1, rotation: 0 },
-        { id: 'btn_join', type: 'join_button', x: 60, y: 550, scale: 1, rotation: 0 } // Додали кнопку в дефолтне полотно
+        { id: 'btn_join', type: 'join_button', x: 60, y: 550, scale: 1, rotation: 0 } 
       ]);
       resetElementColors(); 
       setBgPattern('none');
@@ -154,7 +159,7 @@ export default function ClubDetailPage({ club, goBack }) {
         description: club.description || '',
         format: club.format || 'ON',
         currently_reading: club.currently_reading || '',
-        is_open: club.is_open !== undefined ? club.is_open : true,
+        is_open: club.is_private !== undefined ? !club.is_private : true,
         admin_can_edit_design: club.admin_can_edit_design !== undefined ? club.admin_can_edit_design : true,
         admin_can_manage_books: club.admin_can_manage_books !== undefined ? club.admin_can_manage_books : true,
         admin_can_remove_members: club.admin_can_remove_members !== undefined ? club.admin_can_remove_members : false,
@@ -162,6 +167,19 @@ export default function ClubDetailPage({ club, goBack }) {
       
       setMembers(club.members_details || []);
       setJoinRequests(club.join_requests || []);
+
+      const token = localStorage.getItem('token');
+      if (token && isAdmin && club?.id) {
+        fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
+          headers: { 'Authorization': `Token ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.join_requests) setJoinRequests(data.join_requests);
+          if (data.members_details) setMembers(data.members_details);
+        })
+        .catch(err => console.error("Помилка завантаження заявок:", err));
+      }
     }
   }, [club]);
 
@@ -247,6 +265,68 @@ export default function ClubDetailPage({ club, goBack }) {
     .catch(err => console.error("Помилка:", err));
   };
 
+  const handleRemoveBook = (bookId) => {
+    if (!window.confirm("Ви впевнені, що хочете видалити цю книгу з клубу?")) return;
+    const newBookIds = clubBooks.filter(b => b.id !== bookId).map(b => b.id);
+    const token = localStorage.getItem('token');
+
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${token}`
+      },
+      body: JSON.stringify({ book_ids: newBookIds })
+    })
+    .then(res => {
+      if (res.ok) {
+        setClubBooks(prev => prev.filter(b => b.id !== bookId));
+        setSelectedBook(null);
+        setActiveTab('workspace');
+      } else {
+        alert("Помилка при видаленні книги.");
+      }
+    })
+    .catch(err => console.error("Помилка:", err));
+  };
+
+  const handleScheduleMeeting = () => {
+    if (!meetingData.scheduled_at || !meetingData.location_details) {
+      alert("Будь ласка, вкажіть дату, час та локацію зустрічі.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const bookId = clubBooks.find(b => b.title === settingsData.currently_reading)?.id || null;
+
+    fetch(`http://127.0.0.1:8000/api/meetings/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${token}`
+      },
+      body: JSON.stringify({
+        club: club.id,
+        book: bookId,
+        topic: meetingData.topic || 'Обговорення книги',
+        scheduled_at: meetingData.scheduled_at,
+        format: settingsData.format,
+        location_details: meetingData.location_details
+      })
+    })
+    .then(async res => {
+      if (res.ok) {
+        alert("Зустріч успішно заплановано!");
+        window.location.reload();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        console.error(data);
+        alert("Помилка планування зустрічі.");
+      }
+    })
+    .catch(err => console.error("Помилка:", err));
+  };
+
   const handleSaveDesign = () => {
     const designToSave = { 
       elements, customBg, bgPattern, bgColor,
@@ -278,13 +358,16 @@ export default function ClubDetailPage({ club, goBack }) {
   const handleSaveSettings = () => {
     const token = localStorage.getItem('token');
     
+    const dataToSend = { ...settingsData, is_private: !settingsData.is_open };
+    delete dataToSend.is_open;
+
     fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Token ${token}`
       },
-      body: JSON.stringify(settingsData)
+      body: JSON.stringify(dataToSend) 
     })
     .then(res => {
       if (res.ok) {
@@ -299,7 +382,7 @@ export default function ClubDetailPage({ club, goBack }) {
 
   const handleRequestAction = (requestId, action) => {
     const token = localStorage.getItem('token');
-    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/requests/${requestId}/`, {
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/requests/${requestId}/process/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -309,10 +392,9 @@ export default function ClubDetailPage({ club, goBack }) {
     })
     .then(res => {
       if (res.ok) {
+        alert(action === 'accept' ? 'Учасника прийнято!' : 'Заявку відхилено.');
         setJoinRequests(prev => prev.filter(req => req.id !== requestId));
-        if (action === 'accept') {
-          window.location.reload();
-        }
+        window.location.reload();
       } else {
         alert("Помилка обробки заявки.");
       }
@@ -374,6 +456,26 @@ export default function ClubDetailPage({ club, goBack }) {
       }
     })
     .catch(err => console.error(err));
+  };
+
+  const handleDeleteClub = () => {
+    if (!window.confirm("Ви впевнені, що хочете видалити цей клуб назавжди? Цю дію неможливо скасувати!")) return;
+    
+    const token = localStorage.getItem('token');
+    
+    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Token ${token}` }
+    })
+    .then(res => {
+      if (res.ok || res.status === 204) {
+        alert("Клуб успішно видалено.");
+        window.location.href = '/'; 
+      } else {
+        alert("Помилка при видаленні клубу.");
+      }
+    })
+    .catch(err => console.error("Помилка:", err));
   };
 
   const handleResetDesign = () => {
@@ -944,8 +1046,15 @@ export default function ClubDetailPage({ club, goBack }) {
 
                 <div className="border-t border-theme-secondary/10 pt-10">
                   <h3 className="text-2xl font-bold italic font-serif text-theme-secondary mb-8 text-center">Книжкова полиця клубу</h3>
-                  <div className="flex justify-center">
+                  <div 
+                    className="flex justify-center cursor-pointer group relative pb-4"
+                    onClick={() => setActiveTab('bookshelf')}
+                  >
                     {renderBookshelfVisual(false)}
+                    
+                    <div className="absolute -bottom-2 bg-theme-secondary text-theme-primary px-4 py-1.5 rounded-md text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow-sm whitespace-nowrap pointer-events-none z-50">
+                      Перейти до всієї полиці
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1236,10 +1345,9 @@ export default function ClubDetailPage({ club, goBack }) {
               book={selectedBook} 
               goBack={() => { setActiveTab('workspace'); setSelectedBook(null); }} 
            />
-           
            {isAdmin && (
              <div className="absolute top-10 right-10 z-50">
-               <button onClick={() => { handleRemoveBook(selectedBook.id); setActiveTab('workspace'); }} className="px-6 py-3 border-2 border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors bg-theme-primary">
+               <button onClick={() => { handleRemoveBook(selectedBook.id); }} className="px-6 py-3 border-2 border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors bg-theme-primary shadow-sm">
                  Видалити з клубу
                </button>
              </div>
@@ -1261,6 +1369,10 @@ export default function ClubDetailPage({ club, goBack }) {
             handleRemoveMember={handleRemoveMember}
             handlePromoteMember={handlePromoteMember}
             handleDemoteMember={handleDemoteMember}
+            handleDeleteClub={handleDeleteClub}
+            meetingData={meetingData}
+            setMeetingData={setMeetingData}
+            handleScheduleMeeting={handleScheduleMeeting}
          />
       )}
     </div>

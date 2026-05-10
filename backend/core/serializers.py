@@ -33,6 +33,14 @@ class ClubMemberSerializer(serializers.ModelSerializer):
         model = ClubMember
         fields = ['id', 'user', 'username', 'user_details', 'club', 'role', 'joined_at']
 
+class JoinRequestSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = JoinRequest
+        fields = ['id', 'user', 'username', 'club', 'status', 'created_at']
+        read_only_fields = ['user', 'status']
+
 class ClubSerializer(serializers.ModelSerializer):
     creator_details = UserSerializer(source='creator', read_only=True)
     genres_details = GenreSerializer(source='genres', many=True, read_only=True)
@@ -41,7 +49,8 @@ class ClubSerializer(serializers.ModelSerializer):
     members_count = serializers.SerializerMethodField()
     next_meeting = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
-    currently_reading = serializers.SerializerMethodField()
+    
+    
     user_role = serializers.SerializerMethodField()
     
     books = BookSerializer(many=True, read_only=True) 
@@ -51,6 +60,8 @@ class ClubSerializer(serializers.ModelSerializer):
     )
 
     members_details = ClubMemberSerializer(source='clubmember_set', many=True, read_only=True)
+    
+    join_requests = serializers.SerializerMethodField()
 
     class Meta:
         model = Club
@@ -59,7 +70,8 @@ class ClubSerializer(serializers.ModelSerializer):
             'creator', 'creator_details', 'genres', 'genres_details',
             'members_count', 'next_meeting', 'location', 'currently_reading',
             'custom_design', 'user_role', 'books', 'book_ids',
-            'members_details'
+            'members_details', 
+            'join_requests'
         ]
 
         read_only_fields = ['creator']
@@ -79,12 +91,6 @@ class ClubSerializer(serializers.ModelSerializer):
             return meeting.location_details
         return "Уточнюється"
 
-    def get_currently_reading(self, obj):
-        meeting = obj.meetings.order_by('scheduled_at').first()
-        if meeting and meeting.book:
-            return meeting.book.title
-        return "Обираємо книгу"
-
     def get_user_role(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
@@ -92,15 +98,17 @@ class ClubSerializer(serializers.ModelSerializer):
             if member:
                 return member.role
         return None
-    
 
-class JoinRequestSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    
-    class Meta:
-        model = JoinRequest
-        fields = ['id', 'user', 'username', 'club', 'status', 'created_at']
-        read_only_fields = ['user', 'status']
+    def get_join_requests(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            is_creator = obj.creator_id == request.user.id
+            is_admin = obj.clubmember_set.filter(user_id=request.user.id, role='AD').exists()
+            
+            if is_creator or is_admin:
+                pending_requests = obj.join_requests_list.filter(status='PE')
+                return JoinRequestSerializer(pending_requests, many=True).data
+        return []
 
 class MeetingSerializer(serializers.ModelSerializer):
     book_details = BookSerializer(source='book', read_only=True)

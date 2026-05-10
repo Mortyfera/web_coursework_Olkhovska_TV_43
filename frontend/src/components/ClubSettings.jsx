@@ -12,7 +12,11 @@ export default function ClubSettings({
   handleRequestAction, 
   handleRemoveMember, 
   handlePromoteMember, 
-  handleDemoteMember 
+  handleDemoteMember,
+  handleDeleteClub,
+  meetingData,
+  setMeetingData,
+  handleScheduleMeeting
 }) {
   return (
     <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16 custom-scrollbar">
@@ -52,6 +56,27 @@ export default function ClubSettings({
               </div>
               {!settingsData.is_open && <p className="text-xs text-theme-secondary opacity-60 mt-[-10px] ml-8">Користувачі зможуть подати заявку на вступ, яку вам потрібно буде схвалити.</p>}
               <button onClick={handleSaveSettings} className="mt-4 w-full bg-theme-secondary text-theme-primary font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-md">Зберегти зміни</button>
+            </div>
+
+            <div className="mt-10 pt-8 border-t border-theme-secondary/10">
+              <h3 className="text-xl font-bold text-theme-secondary mb-6 border-b border-theme-secondary/10 pb-2">Запланувати зустріч</h3>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm text-theme-secondary opacity-80 mb-1">Тема зустрічі</label>
+                  <input type="text" value={meetingData.topic} onChange={e => setMeetingData({...meetingData, topic: e.target.value})} placeholder="Наприклад: Обговорення 1-3 розділів" className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary" />
+                </div>
+                <div>
+                  <label className="block text-sm text-theme-secondary opacity-80 mb-1">Дата та час</label>
+                  <input type="datetime-local" value={meetingData.scheduled_at} onChange={e => setMeetingData({...meetingData, scheduled_at: e.target.value})} className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary" />
+                </div>
+                <div>
+                  <label className="block text-sm text-theme-secondary opacity-80 mb-1">Локація або посилання</label>
+                  <input type="text" value={meetingData.location_details} onChange={e => setMeetingData({...meetingData, location_details: e.target.value})} placeholder="Лінк на Zoom, Meet або фізична адреса" className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary" />
+                </div>
+                <button onClick={handleScheduleMeeting} className="mt-2 w-full bg-theme-secondary/10 text-theme-secondary border border-theme-secondary/30 font-bold py-3 rounded-lg hover:bg-theme-secondary hover:text-theme-primary transition-colors shadow-sm">
+                  Запланувати
+                </button>
+              </div>
             </div>
           </div>
 
@@ -100,7 +125,16 @@ export default function ClubSettings({
               </div>
             </div>
             
-            {isOwner && <div className="mt-12 border-t border-red-500/20 pt-6"><button className="w-full py-3 border border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors">Видалити клуб назавжди</button></div>}
+            {isOwner && (
+              <div className="mt-12 border-t border-red-500/20 pt-6">
+                <button 
+                  onClick={handleDeleteClub} 
+                  className="w-full py-3 border border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                >
+                  Видалити клуб назавжди
+                </button>
+              </div>
+            )}
           </div>
           
           {isOwner && (

@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from 'react';
 
+const formatDateToUkrainian = (dateString) => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString; 
+    
+    return date.toLocaleDateString('uk-UA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
+
 export default function NewsPage({ selectedArticle, setSelectedArticle }) {
   const [news, setNews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +45,7 @@ export default function NewsPage({ selectedArticle, setSelectedArticle }) {
             onClick={() => setSelectedArticle(null)}
             className="mb-10 flex items-center gap-2 text-theme-secondary hover:opacity-70 transition-opacity font-serif font-medium text-lg"
           >
-            &larr; Back to News
+            &larr; Назад до новин
           </button>
 
           <h1 className="text-4xl sm:text-5xl font-bold font-serif mb-6 text-theme-secondary">
@@ -44,13 +60,13 @@ export default function NewsPage({ selectedArticle, setSelectedArticle }) {
                 <line x1="8" y1="2" x2="8" y2="6"></line>
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
-              <span>{selectedArticle.date}</span>
+              <span>{formatDateToUkrainian(selectedArticle.date)}</span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
               </svg>
-              <span>{selectedArticle.author || "MarginNotes Team"}</span>
+              <span>{selectedArticle.author || "Команда MarginNotes"}</span>
             </div>
           </div>
 
@@ -66,10 +82,10 @@ export default function NewsPage({ selectedArticle, setSelectedArticle }) {
     <div className="w-full flex-grow flex flex-col">
       <div className="bg-theme-primary text-theme-secondary py-20 text-center transition-colors duration-500 border-b border-theme-secondary/10">
         <h1 className="text-4xl sm:text-5xl font-bold italic font-serif mb-4">
-          Book World News
+          Новини книжкового світу
         </h1>
         <p className="text-lg sm:text-xl opacity-80 font-serif">
-          Stay updated with the latest from the literary world
+          Будьте в курсі останніх подій з літературного світу
         </p>
       </div>
 
@@ -97,13 +113,13 @@ export default function NewsPage({ selectedArticle, setSelectedArticle }) {
                       <line x1="8" y1="2" x2="8" y2="6"></line>
                       <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
-                    <span>{item.date}</span>
+                    <span>{formatDateToUkrainian(item.date)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                     </svg>
-                    <span>{item.author || "MarginNotes Team"}</span>
+                    <span>{item.author || "Команда MarginNotes"}</span>
                   </div>
                 </div>
 
@@ -112,7 +128,7 @@ export default function NewsPage({ selectedArticle, setSelectedArticle }) {
                 </div>
 
                 <div className="mt-6 font-serif font-bold italic opacity-80 group-hover:opacity-100 transition-opacity">
-                  Read full article &rarr;
+                  Читати повну статтю &rarr;
                 </div>
               </div>
             ))}
