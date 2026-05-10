@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from .models import User, Genre, Book, UserBookshelf, Club, ClubMember, Meeting, News
+from .models import User, Genre, Book, UserBookshelf, Club, ClubMember, Meeting, News, JoinRequest
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name','avatar_url']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name','avatar_url', 'favorite_genres']
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -62,6 +62,8 @@ class ClubSerializer(serializers.ModelSerializer):
             'members_details'
         ]
 
+        read_only_fields = ['creator']
+
     def get_members_count(self, obj):
         return obj.clubmember_set.count()
 
@@ -90,6 +92,15 @@ class ClubSerializer(serializers.ModelSerializer):
             if member:
                 return member.role
         return None
+    
+
+class JoinRequestSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = JoinRequest
+        fields = ['id', 'user', 'username', 'club', 'status', 'created_at']
+        read_only_fields = ['user', 'status']
 
 class MeetingSerializer(serializers.ModelSerializer):
     book_details = BookSerializer(source='book', read_only=True)

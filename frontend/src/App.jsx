@@ -11,6 +11,7 @@ import AuthModal from './components/AuthModal';
 import BookDetailPage from './components/BookDetailPage';
 import MyBookshelfManager from './components/MyBookshelfManager';
 import UserProfile from './components/UserProfile';
+import CreateClubPage from './components/CreateClubPage';
 
 const ActivationPage = ({ uid, token, setCurrentPage }) => {
   const [status, setStatus] = useState('processing');
@@ -58,6 +59,17 @@ const ActivationPage = ({ uid, token, setCurrentPage }) => {
 };
 
 function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const customPrimary = localStorage.getItem('customPrimary');
+    const customSecondary = localStorage.getItem('customSecondary');
+
+    if (savedTheme === 'custom' && customPrimary && customSecondary) {
+      document.documentElement.style.setProperty('--color-primary', customPrimary);
+      document.documentElement.style.setProperty('--color-secondary', customSecondary);
+    }
+  }, []);
+
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'default');
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token')); 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -119,7 +131,11 @@ function App() {
                 />
               </div>
               <div className="mt-8">
-                <Recommendations isLoggedIn={isLoggedIn} />
+                <Recommendations 
+                  isLoggedIn={isLoggedIn} 
+                  setCurrentPage={setCurrentPage}
+                  setSelectedBook={setSelectedBook}
+                />
               </div>
             </div>
             <NewsSection 
@@ -165,6 +181,14 @@ function App() {
             uid={activationParams.uid} 
             token={activationParams.token} 
             setCurrentPage={setCurrentPage} 
+          />
+        )}
+
+        {currentPage === 'create_club' && (
+          <CreateClubPage 
+            goBack={() => setCurrentPage('clubs')} 
+            setCurrentPage={setCurrentPage} 
+            setSelectedClub={setSelectedClub} 
           />
         )}
       </main>

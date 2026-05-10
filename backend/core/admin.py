@@ -5,11 +5,15 @@ from .models import User, Genre, Book, UserBookshelf, Club, ClubMember, Meeting,
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
-        ('Додаткова інформація', {'fields': ('avatar', 'avatar_url')}),
+        ('Додаткова інформація (MarginNotes)', {
+            'fields': ('avatar', 'avatar_url', 'favorite_genres'),
+        }),
     )
     
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Додаткова інформація', {'fields': ('avatar', 'avatar_url')}),
+        ('Додаткова інформація', {
+            'fields': ('avatar', 'avatar_url', 'favorite_genres'),
+        }),
     )
 
 admin.site.register(Genre)

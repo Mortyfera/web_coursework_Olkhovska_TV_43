@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 
-export default function MyBookshelfManager({ goBack, setCurrentPage, setSelectedBook }) {
-  const [books, setBooks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function MyBookshelfManager({ 
+  goBack, 
+  setCurrentPage, 
+  setSelectedBook, 
+  isClubMode = false, 
+  clubId = null,
+  initialBooks = null,
+  onBooksUpdate = null,
+  isAdmin = true
+}) {
+  const [books, setBooks] = useState(initialBooks || []);
+  const [isLoading, setIsLoading] = useState(!initialBooks); 
   const [error, setError] = useState(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -14,6 +23,12 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
+    if (isClubMode) {
+      if (initialBooks) setBooks(initialBooks);
+      setIsLoading(false);
+      return; 
+    }
+
     const fetchUserBooks = async () => {
       const token = localStorage.getItem('token');
       
@@ -43,7 +58,9 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
     };
 
     fetchUserBooks();
+  }, [isClubMode, initialBooks]);
 
+  useEffect(() => {
     fetch('http://127.0.0.1:8000/api/genres/')
       .then(res => res.json())
       .then(data => setGenres(data.results || data))
@@ -78,67 +95,102 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
     });
 
     if (isAlreadyOnShelf) {
-      alert('Ця книга вже є на вашій полиці!');
+      alert('Ця книга вже є на поліці!');
       return;
     }
 
     const token = localStorage.getItem('token');
     
-    fetch('http://127.0.0.1:8000/api/bookshelf/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${token}`
-      },
-      body: JSON.stringify({ book: book.id, status: 'TR' }) 
-    })
-    .then(async res => {
-      if (res.ok) return res.json();
-      
-      const err = await res.json().catch(() => ({}));
-      const errorDetails = Object.entries(err)
-        .map(([field, msg]) => `${field}: ${msg}`)
-        .join(' | ');
-        
-      throw new Error(errorDetails || `Помилка сервера: ${res.status}`);
-    })
-    .then(newShelfItem => {
-      setBooks([...books, newShelfItem]);
-      setIsModalOpen(false);
-      setSearchQuery('');
-      alert("Книгу успішно додано!");
-    })
-    .catch(err => {
-      alert(`Не вдалося додати книгу.\nПричина: ${err.message}`);
-      console.error("Деталі помилки:", err);
-    });
+    if (isClubMode) {
+      const currentBookIds = books.map(b => b.id || (b.book_details && b.book_details.id));
+      const newBookIds = [...currentBookIds, book.id];
+
+      fetch(`http://127.0.0.1:8000/api/clubs/${clubId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({ book_ids: newBookIds }) 
+      })
+      .then(res => {
+        if (res.ok) {
+          const newBooks = [...books, book];
+          setBooks(newBooks);
+          if (onBooksUpdate) onBooksUpdate(newBooks);
+          setIsModalOpen(false);
+          setSearchQuery('');
+          alert("Книгу успішно додано в клуб!");
+        } else {
+          alert("Помилка при додаванні книги в клуб.");
+        }
+      })
+      .catch(err => console.error("Помилка:", err));
+
+    } else {
+      fetch('http://127.0.0.1:8000/api/bookshelf/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({ book: book.id, status: 'TR' }) 
+      })
+      .then(async res => {
+        if (res.ok) return res.json();
+        const err = await res.json().catch(() => ({}));
+        throw new Error(Object.entries(err).map(([field, msg]) => `${field}: ${msg}`).join(' | '));
+      })
+      .then(newShelfItem => {
+        setBooks([...books, newShelfItem]);
+        setIsModalOpen(false);
+        setSearchQuery('');
+        alert("Книгу успішно додано!");
+      })
+      .catch(err => alert(`Не вдалося додати книгу.\nПричина: ${err.message}`));
+    }
   };
 
-  const handleRemoveBook = async (e, shelfItemId) => {
+  const handleRemoveBook = async (e, item) => {
     e.stopPropagation();
-    
-    if (!window.confirm('Ви впевнені, що хочете видалити цю книгу з вашої полиці?')) {
-      return;
-    }
+    if (!window.confirm('Ви впевнені, що хочете видалити цю книгу з полиці?')) return;
 
     const token = localStorage.getItem('token');
     
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookshelf/${shelfItemId}/`, {
-        method: 'DELETE',
+    if (isClubMode) {
+      const bookIdToRemove = item.id;
+      const newBookIds = books.filter(b => b.id !== bookIdToRemove).map(b => b.id);
+
+      fetch(`http://127.0.0.1:8000/api/clubs/${clubId}/`, {
+        method: 'PATCH',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({ book_ids: newBookIds })
+      })
+      .then(res => {
+        if (res.ok) {
+          const newBooks = books.filter(b => b.id !== bookIdToRemove);
+          setBooks(newBooks);
+          if (onBooksUpdate) onBooksUpdate(newBooks);
+        } else {
+          alert("Помилка при видаленні книги.");
         }
-      });
+      })
+      .catch(err => console.error("Помилка:", err));
 
-      if (!response.ok) {
-        throw new Error('Не вдалося видалити книгу з сервера');
+    } else {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/bookshelf/${item.id}/`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Token ${token}` }
+        });
+        if (!response.ok) throw new Error('Не вдалося видалити книгу з сервера');
+        setBooks(books.filter(b => b.id !== item.id));
+      } catch (err) {
+        alert(`Помилка видалення: ${err.message}`);
       }
-
-      setBooks(books.filter(item => item.id !== shelfItemId));
-    } catch (err) {
-      alert(`Помилка видалення: ${err.message}`);
-      console.error("Деталі помилки:", err);
     }
   };
 
@@ -151,7 +203,7 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
   });
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto p-4 sm:p-8 md:p-16 bg-theme-background transition-colors duration-500 relative">
+    <div className="flex-1 w-full h-full overflow-y-auto p-4 sm:p-8 md:p-16 bg-theme-background transition-colors duration-500 relative custom-scrollbar">
       <div className="max-w-6xl mx-auto relative">
         
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-6">
@@ -163,21 +215,23 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
               &larr; До простору
             </button>
             <h2 className="text-4xl font-serif font-bold text-theme-secondary italic transition-colors duration-500">
-              Моя книжкова полиця
+              {isClubMode ? 'Книжкова полиця клубу' : 'Моя книжкова полиця'}
             </h2>
           </div>
           
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="px-6 py-2.5 bg-[#4A554E] text-white font-medium rounded-md hover:bg-[#3A453E] transition-colors shadow-md whitespace-nowrap self-start sm:self-auto"
-          >
-            + Додати книгу
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="px-6 py-2.5 bg-[#4A554E] text-white font-medium rounded-md hover:bg-[#3A453E] transition-colors shadow-md whitespace-nowrap self-start sm:self-auto"
+            >
+              + Додати книгу
+            </button>
+          )}
         </div>
 
         {isLoading && <p className="text-theme-secondary opacity-70 italic font-serif">Завантаження книжок...</p>}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
             <strong className="font-bold">Помилка: </strong>
             <span className="block sm:inline">{error}</span>
           </div>
@@ -187,30 +241,32 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8">
             {books.length === 0 ? (
               <p className="text-theme-secondary opacity-70 col-span-full font-serif text-lg">
-                Ваша полиця поки що порожня.
+                Полиця поки що порожня.
               </p>
             ) : (
               books.map((item) => {
-                const book = item.book_details ? item.book_details : item;
+                const book = isClubMode ? item : (item.book_details || item);
 
                 return (
                   <div 
-                    key={item.id}
+                    key={isClubMode ? book.id : item.id}
                     onClick={() => {
                       if(setSelectedBook) setSelectedBook(book);
                       if(setCurrentPage) setCurrentPage('book_detail');
                     }}
                     className="bg-theme-primary rounded-xl p-4 sm:p-5 shadow-sm border border-theme-secondary/10 hover:shadow-lg transition-all duration-300 cursor-pointer group hover:-translate-y-1.5 flex flex-col h-full"
                   >
-                    <div className="aspect-[2/3] w-full rounded-md mb-4 overflow-hidden relative shadow-md border border-theme-secondary/20">
+                    <div className="aspect-[2/3] w-full rounded-md mb-4 overflow-hidden relative shadow-md border border-theme-secondary/20 bg-theme-secondary/10">
                       
-                      <button
-                        onClick={(e) => handleRemoveBook(e, item.id)}
-                        className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm z-10 shadow-sm"
-                        title="Видалити з полиці"
-                      >
-                        ✕
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => handleRemoveBook(e, item)}
+                          className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm z-10 shadow-sm"
+                          title="Видалити з полиці"
+                        >
+                          ✕
+                        </button>
+                      )}
 
                       {book.cover_image_url ? (
                         <img 
@@ -219,7 +275,7 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                         />
                       ) : (
-                        <div className="w-full h-full bg-theme-secondary/10 flex items-center justify-center text-theme-secondary opacity-50 font-serif">
+                        <div className="w-full h-full flex items-center justify-center text-theme-secondary opacity-50 font-serif">
                           Обкладинка
                         </div>
                       )}
@@ -276,7 +332,7 @@ export default function MyBookshelfManager({ goBack, setCurrentPage, setSelected
               </select>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               {isSearching ? (
                 <p className="text-center text-theme-secondary opacity-70 italic font-serif mt-10">Шукаємо...</p>
               ) : filteredCatalog.length === 0 ? (

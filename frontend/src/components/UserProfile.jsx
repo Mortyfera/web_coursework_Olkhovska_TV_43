@@ -3,8 +3,6 @@ import React, { useState, useEffect } from 'react';
 export default function UserProfile({ goBack }) {
   const [user, setUser] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [booksCount, setBooksCount] = useState(0);
-  const [userClubs, setUserClubs] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,52 +54,6 @@ export default function UserProfile({ goBack }) {
             email: currentUser.email || '',
             avatar_url: currentUser.avatar_url || '',
           }));
-
-          const shelfRes = await fetch('http://127.0.0.1:8000/api/bookshelf/', {
-            headers: { 'Authorization': `Token ${token}` }
-          });
-          const shelfData = await shelfRes.json();
-          setBooksCount((shelfData.results || shelfData).length);
-
-          const [membersRes, allClubsRes] = await Promise.all([
-            fetch('http://127.0.0.1:8000/api/club-members/', { headers: { 'Authorization': `Token ${token}` } }),
-            fetch('http://127.0.0.1:8000/api/clubs/', { headers: { 'Authorization': `Token ${token}` } })
-          ]);
-
-          const membersData = await membersRes.json();
-          const allClubsData = await allClubsRes.json();
-
-          const memberships = (membersData.results || membersData).filter(m => Number(m.user) === currentUserId);
-          const allClubs = allClubsData.results || allClubsData;
-
-          const combinedClubs = allClubs.filter(club => {
-            const isCreator = Number(club.creator) === currentUserId;
-            const isMember = memberships.some(m => Number(m.club) === Number(club.id));
-            return isCreator || isMember;
-          }).map(club => {
-            const isCreator = Number(club.creator) === currentUserId;
-            const membership = memberships.find(m => Number(m.club) === Number(club.id));
-            
-            let roleLabel = "Учасник";
-            let roleCode = "MB";
-
-            if (isCreator) {
-              roleLabel = "Власник";
-              roleCode = "OWNER";
-            } else if (membership?.role === 'AD') {
-              roleLabel = "Адмін";
-              roleCode = "AD";
-            }
-
-            return {
-              id: club.id,
-              name: club.name,
-              role: roleLabel,
-              roleCode: roleCode
-            };
-          });
-
-          setUserClubs(combinedClubs);
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -226,39 +178,21 @@ export default function UserProfile({ goBack }) {
 
             <h2 className="text-3xl font-serif font-bold italic text-theme-secondary mb-1 truncate w-full text-center lg:text-left">{user?.username}</h2>
             <p className="text-theme-secondary opacity-60 font-serif mb-8 transition-colors duration-500">Читач MarginNotes</p>
-
-            <div className="w-full border-t border-theme-secondary/10 pt-6">
-              <h3 className="text-xs uppercase tracking-widest font-bold text-theme-secondary opacity-40 mb-4">Мої Клуби</h3>
-              {userClubs.length > 0 ? (
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                  {userClubs.map(clubInfo => (
-                    <div key={clubInfo.id} className="flex justify-between items-center bg-theme-background/50 p-3 rounded-lg border border-theme-secondary/5 hover:border-theme-secondary/20 transition-all">
-                      <span className="font-serif text-theme-secondary truncate mr-2 text-sm">{clubInfo.name}</span>
-                      <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold shrink-0 border ${
-                        clubInfo.roleCode === 'OWNER' 
-                        ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' 
-                        : clubInfo.roleCode === 'AD'
-                        ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
-                        : 'bg-theme-secondary/5 text-theme-secondary border-theme-secondary/20'
-                      }`}>
-                        {clubInfo.role}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm italic opacity-50 text-theme-secondary">Ще не в жодному клубі</p>
-              )}
-            </div>
           </div>
 
           <div className="flex-1 space-y-10">
             
             <section>
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h3 className="text-xs uppercase tracking-widest font-bold text-theme-secondary opacity-40">Особисті дані</h3>
+                
                 {!isEditing && (
-                  <button onClick={() => setIsEditing(true)} className="text-sm text-theme-secondary underline opacity-60 hover:opacity-100 transition-opacity">Редагувати</button>
+                  <button 
+                    onClick={() => setIsEditing(true)} 
+                    className="px-6 py-2 bg-[#4A554E] text-white rounded-lg font-medium shadow-md hover:bg-[#3A453E] transition-all"
+                  >
+                    Редагувати профіль
+                  </button>
                 )}
               </div>
 
@@ -336,19 +270,6 @@ export default function UserProfile({ goBack }) {
               ) : (
                 <button onClick={() => setIsChangingPassword(true)} className="px-6 py-2 border border-theme-secondary/20 text-theme-secondary rounded-lg hover:bg-theme-secondary/5 transition-colors">Змінити пароль</button>
               )}
-            </section>
-
-            <section className="pt-10 border-t border-theme-secondary/10">
-              <div className="flex items-center justify-between bg-theme-secondary/5 p-8 rounded-3xl transition-colors">
-                <div className="text-center md:text-left">
-                  <h4 className="text-4xl font-serif text-theme-secondary italic">{booksCount}</h4>
-                  <p className="text-sm opacity-60 text-theme-secondary">книг у колекції</p>
-                </div>
-                <div className="text-center md:text-right">
-                  <h4 className="text-4xl font-serif text-theme-secondary italic">{userClubs.length}</h4>
-                  <p className="text-sm opacity-60 text-theme-secondary">активних клубів</p>
-                </div>
-              </div>
             </section>
 
           </div>

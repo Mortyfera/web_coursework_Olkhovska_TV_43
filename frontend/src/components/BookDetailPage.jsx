@@ -1,39 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 export default function BookDetailPage({ book, goBack }) {
-  const [isDeleting, setIsDeleting] = useState(false);
-
   if (!book) return null;
-
-  const handleDelete = async () => {
-    const confirmDelete = window.confirm("Ви впевнені, що хочете видалити цю книгу з полиці?");
-    if (!confirmDelete) return;
-
-    setIsDeleting(true);
-    const token = localStorage.getItem('token');
-
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/api/bookshelf/${book.id}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok || response.status === 204) {
-        goBack(); 
-      } else {
-        const data = await response.json().catch(() => ({}));
-        alert(`Помилка видалення: ${data.detail || data.error || 'Невідома помилка'}`);
-      }
-    } catch (error) {
-      console.error('Помилка при видаленні:', error);
-      alert('Помилка з\'єднання з сервером');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   return (
     <div className="flex-1 w-full h-full overflow-y-auto p-4 sm:p-8 md:p-16 bg-theme-background transition-colors duration-500">
@@ -80,22 +48,8 @@ export default function BookDetailPage({ book, goBack }) {
             </h3>
             
             <p className="text-base sm:text-lg text-theme-secondary leading-relaxed opacity-90 mb-10 whitespace-pre-wrap transition-colors duration-500">
-              {book.description || "На жаль, детальний опис для цієї книги ще не додано."}
+              <span dangerouslySetInnerHTML={{ __html: book.description || "На жаль, детальний опис для цієї книги ще не додано." }} />
             </p>
-
-            <div className="mt-auto">
-              <button 
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className={`px-6 py-2.5 border border-red-500 font-medium rounded-lg transition-colors ${
-                  isDeleting 
-                    ? 'bg-red-500/50 text-white cursor-not-allowed border-red-500/50' 
-                    : 'text-red-500 hover:bg-red-500 hover:text-white'
-                }`}
-              >
-                {isDeleting ? 'Видалення...' : 'Видалити книгу з полиці'}
-              </button>
-            </div>
             
           </div>
         </div>

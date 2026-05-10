@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from django.conf import settings
 from django.conf.urls.static import static
+from . import views
 
 from .views import (
     UserViewSet, GenreViewSet, BookViewSet, 
@@ -24,6 +25,7 @@ urlpatterns = [
     path('login/', login_view, name='login'),
     path('register/', register_view, name='register'),
     path('change-password/', change_password, name='change_password'),
+    path('recommendations/', views.get_recommendations, name='get_recommendations'),
 
     path('activate/<str:uidb64>/<str:token>/', activate_user, name='activate_user'),
 ]

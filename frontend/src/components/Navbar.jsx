@@ -1,15 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ThemeModal from './ThemeModal'; 
-
-import myLogo from '../assets/logo_fonless.png'; 
-import searchIcon from '../assets/icon_search.png';   
+import myLogo from '../assets/logo_fonless.png';  
 import themeIcon from '../assets/icon_themes.png';     
-import profileIcon from '../assets/user_icon_cat.png';  
 import menuIcon from '../assets/icon_menu.png';       
+import catIcon from '../assets/user_icon_cat.png';
+import frogIcon from '../assets/user_icon_frog.png';
+import dogIcon from '../assets/user_icon_dog.png';
+import duckIcon from '../assets/user_icon_duck.png';
+
+const profileIconsMap = {
+  cat: catIcon,
+  frog: frogIcon,
+  dog: dogIcon,
+  duck: duckIcon,
+};
 
 export default function Navbar({ changeTheme, setCurrentPage, setSelectedArticle, isLoggedIn, setIsLoggedIn, openAuthModal }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false); 
+  
+  const [currentProfileIcon, setCurrentProfileIcon] = useState(catIcon);
+
+  useEffect(() => {
+    const savedIconId = localStorage.getItem('accountIcon');
+    if (savedIconId && profileIconsMap[savedIconId]) {
+      setCurrentProfileIcon(profileIconsMap[savedIconId]);
+    }
+
+    const handleIconChange = (event) => {
+      const newIconId = event.detail;
+      if (profileIconsMap[newIconId]) {
+        setCurrentProfileIcon(profileIconsMap[newIconId]);
+      }
+    };
+
+    window.addEventListener('accountIconChanged', handleIconChange);
+    return () => {
+      window.removeEventListener('accountIconChanged', handleIconChange);
+    };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -49,10 +78,7 @@ export default function Navbar({ changeTheme, setCurrentPage, setSelectedArticle
             </div>
 
             <div className="flex items-center space-x-5">
-              <button className="hover:scale-110 transition-transform">
-                <img src={searchIcon} alt="Search" className="w-9 h-9 object-contain mix-blend-multiply" />
-              </button>
-              <button onClick={() => setIsThemeModalOpen(true)} className="hover:scale-110 transition-transform flex items-center" title="Customize Experience">
+              <button onClick={() => setIsThemeModalOpen(true)} className="hover:scale-110 transition-transform flex items-center" title="Налаштувати вигляд">
                 <img src={themeIcon} alt="Change Theme" className="w-9 h-9 object-contain mix-blend-multiply" />
               </button>
               
@@ -60,7 +86,7 @@ export default function Navbar({ changeTheme, setCurrentPage, setSelectedArticle
                 className="hover:scale-110 transition-transform" 
                 onClick={() => isLoggedIn ? setCurrentPage('profile') : openAuthModal()}
               >
-                <img src={profileIcon} alt="Profile" className="w-8 h-8 object-contain mix-blend-multiply" />
+                <img src={currentProfileIcon} alt="Profile" className="w-8 h-8 object-contain mix-blend-multiply" />
               </button>
 
               <button className="md:hidden ml-4 hover:scale-110 transition-transform" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>

@@ -51,7 +51,10 @@ export default function BookClubsPage({ setSelectedClub, setCurrentPage }) {
         <p className="text-xl opacity-80 font-serif mb-8">
           Знайдіть свою читацьку спільноту або створіть власну
         </p>
-        <button className="bg-theme-secondary text-theme-primary font-serif px-6 py-3 rounded-md hover:opacity-80 transition-all shadow-md flex items-center gap-2 mx-auto">
+        <button 
+          onClick={() => setCurrentPage('create_club')} 
+          className="bg-theme-secondary text-theme-primary font-serif px-6 py-3 rounded-md hover:opacity-80 transition-all shadow-md flex items-center gap-2 mx-auto"
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
           Створити власний клуб
         </button>

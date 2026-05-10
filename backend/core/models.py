@@ -5,6 +5,7 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     avatar_url = models.URLField(blank=True, null=True, verbose_name="Аватар")
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name="Аватар (файл)")
+    favorite_genres = models.ManyToManyField('Genre', related_name='favorited_by_users', blank=True)
 
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Назва жанру")
@@ -54,6 +55,24 @@ class Club(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class JoinRequest(models.Model):
+    class StatusChoices(models.TextChoices):
+        PENDING = 'PE', 'В очікуванні'
+        ACCEPTED = 'AC', 'Прийнято'
+        REJECTED = 'RE', 'Відхилено'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="club_join_requests")
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name="join_requests_list")
+    status = models.CharField(max_length=2, choices=StatusChoices.choices, default=StatusChoices.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'club')
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.club.name} ({self.get_status_display()})"
 
 class ClubMember(models.Model):
     class RoleChoices(models.TextChoices):

@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ClubSettings from './ClubSettings'; 
+import BookDetailPage from './BookDetailPage'; 
+import MyBookshelfManager from './MyBookshelfManager'; 
 
 import catIcon from '../assets/user_icon_cat.png'; 
 import sparkleIcon from '../assets/star.png';
@@ -46,6 +49,7 @@ export default function ClubDetailPage({ club, goBack }) {
   const isStaff = club?.user_role === 'AD';
   
   const isAdmin = isOwner || isStaff;
+  const isMember = !!club?.user_role;
 
   const [activeTab, setActiveTab] = useState('workspace');
   const [selectedBook, setSelectedBook] = useState(null);
@@ -63,9 +67,18 @@ export default function ClubDetailPage({ club, goBack }) {
   const [hasCustomDesign, setHasCustomDesign] = useState(false);
   
   const [customBg, setCustomBg] = useState(null);
-  const [bgPattern, setBgPattern] = useState('dots'); 
+  const [bgPattern, setBgPattern] = useState('none');
   const [bgColor, setBgColor] = useState('transparent');
   
+  const [bookBgColor, setBookBgColor] = useState(''); 
+  const [bookTextColor, setBookTextColor] = useState('');
+  const [infoBgColor, setInfoBgColor] = useState('');
+  const [infoTextColor, setInfoTextColor] = useState('');
+  const [shelfColor, setShelfColor] = useState('#4a554e'); 
+  const [pollBgColor, setPollBgColor] = useState('');
+  const [pollTextColor, setPollTextColor] = useState('');
+  const [pollBarColor, setPollBarColor] = useState('');
+
   const [elements, setElements] = useState([]);
   const [draggingId, setDraggingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -102,15 +115,32 @@ export default function ClubDetailPage({ club, goBack }) {
 
       setElements(updatedElements);
       setCustomBg(design.customBg || null);
-      setBgPattern(design.bgPattern || 'dots');
+      setBgPattern(design.bgPattern || 'none');
       setBgColor(design.bgColor || 'transparent');
+      
+      setBookBgColor(design.bookBgColor || '');
+      setBookTextColor(design.bookTextColor || '');
+      setInfoBgColor(design.infoBgColor || '');
+      setInfoTextColor(design.infoTextColor || '');
+      setShelfColor(design.shelfColor || '#4a554e');
+      setPollBgColor(design.pollBgColor || '');
+      setPollTextColor(design.pollTextColor || '');
+      setPollBarColor(design.pollBarColor || '');
+
       setHasCustomDesign(true);
     } else {
       setElements([
-        { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 50, y: 50, scale: 1, rotation: 0 },
-        { id: '2', type: 'book', content: club?.currently_reading || 'Поточна книга', x: 50, y: 150, scale: 1, rotation: 0 },
-        { id: '3', type: 'info', content: `Учасників: ${currentMemberCount}`, x: 50, y: 350, scale: 1, rotation: 0 }
+        { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 60, y: 60, scale: 1, rotation: 0 },
+        { id: 'desc', type: 'text', content: club?.description || 'Опис клубу', x: 60, y: 150, scale: 1, rotation: 0 },
+        { id: '3', type: 'info_block', x: 60, y: 250, scale: 1, rotation: 0 },
+        { id: '2', type: 'book', content: club?.currently_reading || 'Обираємо книгу', x: 60, y: 430, scale: 1, rotation: 0 },
+        { id: 'shelf', type: 'bookshelf', x: 450, y: 400, scale: 1, rotation: 0 },
+        { id: 'btn_join', type: 'join_button', x: 60, y: 550, scale: 1, rotation: 0 } // Додали кнопку в дефолтне полотно
       ]);
+      resetElementColors(); 
+      setBgPattern('none');
+      setBgColor('transparent');
+      setCustomBg(null);
       setHasCustomDesign(false);
     }
 
@@ -148,6 +178,46 @@ export default function ClubDetailPage({ club, goBack }) {
     }
   }, [searchQuery]);
 
+  const resetElementColors = () => {
+    setBookBgColor('');
+    setBookTextColor('');
+    setInfoBgColor('');
+    setInfoTextColor('');
+    setShelfColor('#4a554e');
+    setPollBgColor('');
+    setPollTextColor('');
+    setPollBarColor('');
+  };
+
+  const handleJoinClub = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Будь ласка, авторизуйтесь, щоб приєднатися до клубу.');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/join/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        alert(data.status || 'Запит успішно оброблено!');
+        window.location.reload();
+      } else {
+        alert(`Помилка: ${data.detail || data.error || 'Не вдалося вступити'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Помилка сервера. Спробуйте пізніше.');
+    }
+  };
+
   const handleAddBook = (bookToAdd) => {
     const currentBookIds = clubBooks.map(b => b.id);
     if (currentBookIds.includes(bookToAdd.id)) {
@@ -177,32 +247,12 @@ export default function ClubDetailPage({ club, goBack }) {
     .catch(err => console.error("Помилка:", err));
   };
 
-  const handleRemoveBook = (bookId) => {
-    if (!window.confirm("Ви впевнені, що хочете видалити цю книгу з полиці клубу?")) return;
-
-    const newBookIds = clubBooks.filter(b => b.id !== bookId).map(b => b.id);
-    const token = localStorage.getItem('token');
-
-    fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${token}`
-      },
-      body: JSON.stringify({ book_ids: newBookIds })
-    })
-    .then(res => {
-      if (res.ok) {
-        setClubBooks(clubBooks.filter(b => b.id !== bookId));
-      } else {
-        alert("Помилка при видаленні книги.");
-      }
-    })
-    .catch(err => console.error("Помилка:", err));
-  };
-
   const handleSaveDesign = () => {
-    const designToSave = { elements, customBg, bgPattern, bgColor };
+    const designToSave = { 
+      elements, customBg, bgPattern, bgColor,
+      bookBgColor, bookTextColor, infoBgColor, infoTextColor,
+      shelfColor, pollBgColor, pollTextColor, pollBarColor
+    };
     const token = localStorage.getItem('token');
     
     fetch(`http://127.0.0.1:8000/api/clubs/${club.id}/`, {
@@ -239,6 +289,7 @@ export default function ClubDetailPage({ club, goBack }) {
     .then(res => {
       if (res.ok) {
         alert("Налаштування успішно збережено!");
+        setElements(prev => prev.map(el => el.type === 'book' ? { ...el, content: settingsData.currently_reading || 'Обираємо книгу' } : el));
       } else {
         alert("Помилка збереження на сервері.");
       }
@@ -341,12 +392,16 @@ export default function ClubDetailPage({ club, goBack }) {
         setHasCustomDesign(false);
         setIsEditMode(false);
         setCustomBg(null);
-        setBgPattern('dots');
+        setBgPattern('none');
         setBgColor('transparent');
+        resetElementColors(); 
         setElements([
-          { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 50, y: 50, scale: 1, rotation: 0 },
-          { id: '2', type: 'book', content: club?.currently_reading || 'Поточна книга', x: 50, y: 150, scale: 1, rotation: 0 },
-          { id: '3', type: 'info', content: `Учасників: ${currentMemberCount}`, x: 50, y: 350, scale: 1, rotation: 0 }
+          { id: '1', type: 'header', content: club?.name || 'Назва клубу', x: 60, y: 60, scale: 1, rotation: 0 },
+          { id: 'desc', type: 'text', content: club?.description || 'Опис клубу', x: 60, y: 150, scale: 1, rotation: 0 },
+          { id: '3', type: 'info_block', x: 60, y: 250, scale: 1, rotation: 0 },
+          { id: '2', type: 'book', content: club?.currently_reading || 'Обираємо книгу', x: 60, y: 430, scale: 1, rotation: 0 },
+          { id: 'shelf', type: 'bookshelf', x: 450, y: 400, scale: 1, rotation: 0 },
+          { id: 'btn_join', type: 'join_button', x: 60, y: 550, scale: 1, rotation: 0 }
         ]);
       }
     });
@@ -483,6 +538,15 @@ export default function ClubDetailPage({ club, goBack }) {
     }]);
     setSelectedId(newId);
   };
+  
+  const addInfoBlock = () => {
+    const pos = getSpawnPos();
+    const newId = Date.now().toString();
+    setElements([...elements, { 
+      id: newId, type: 'info_block', x: pos.x, y: pos.y, scale: 1, rotation: 0 
+    }]);
+    setSelectedId(newId);
+  };
 
   const addPoll = () => {
     const pos = getSpawnPos();
@@ -495,6 +559,16 @@ export default function ClubDetailPage({ club, goBack }) {
         { title: '1984', votes: 8 },
         { title: 'Таємна історія', votes: 4 }
       ]
+    }]);
+    setSelectedId(newId);
+  };
+
+  const addJoinButton = () => {
+    const pos = getSpawnPos();
+    const newId = Date.now().toString();
+    setElements([...elements, { 
+      id: newId, type: 'join_button', x: pos.x, y: pos.y, scale: 1, rotation: 0,
+      bgColor: '', textColor: ''
     }]);
     setSelectedId(newId);
   };
@@ -520,7 +594,50 @@ export default function ClubDetailPage({ club, goBack }) {
     }
   };
 
-  const selectedElement = elements.find(el => el.id === selectedId);
+  const renderBookshelfVisual = (isCanvasElement = false, ringClass = '', baseStyle = {}) => {
+    const displayBooks = clubBooks.slice(-10);
+    return (
+      <div className={`flex flex-col items-center select-none p-2 ${ringClass}`} style={baseStyle}>
+        <div className="flex items-end justify-center gap-[6px] px-6 relative z-10 w-[660px] h-[220px]">
+          {displayBooks.length > 0 ? (
+            displayBooks.map((book, idx) => (
+              <div 
+                key={book.id || idx} 
+                onClick={(e) => {
+                  if (!isEditMode) {
+                    e.stopPropagation(); 
+                    setSelectedBook(book);
+                    setActiveTab('bookDetail');
+                  }
+                }}
+                className={`w-[58px] ${spineHeights[idx % spineHeights.length]} ${spineColors[idx % spineColors.length]} rounded-[2px] shadow-[-3px_0_6px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0 border-l border-white/10 relative overflow-hidden ${!isEditMode ? 'cursor-pointer hover:-translate-y-4 hover:shadow-xl hover:brightness-110 transition-all duration-300 z-20' : ''}`}
+              >
+                <span 
+                  className="text-white/90 text-[14px] font-serif font-medium truncate w-full text-center tracking-wide px-1.5 drop-shadow-sm"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: '95%' }}
+                >
+                  {book.title}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="h-40 flex items-end justify-center px-8 pb-4 w-full">
+              <span className="text-theme-secondary/50 font-serif italic text-base">Полиця порожня</span>
+            </div>
+          )}
+        </div>
+        
+        <div className={`w-[680px] h-[22px] rounded-full mt-[-1px] relative z-20 shadow-md ${!isEditMode ? 'cursor-pointer hover:brightness-110 transition-all' : ''}`} style={{backgroundColor: shelfColor}}></div>
+        <div className={`w-[650px] h-[8px] rounded-full mt-1 opacity-80 ${!isEditMode ? 'cursor-pointer' : ''}`} style={{backgroundColor: shelfColor}}></div>
+        
+        {!isEditMode && isCanvasElement && (
+          <div className="absolute -bottom-10 bg-theme-secondary text-theme-primary px-4 py-1.5 rounded-md text-sm font-bold opacity-0 hover:opacity-100 transition-opacity shadow-sm whitespace-nowrap cursor-pointer z-50 pointer-events-none">
+            Відкрити всі книги
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderElement = (el, isSelected) => {
     const ringClass = isEditMode 
@@ -531,17 +648,41 @@ export default function ClubDetailPage({ club, goBack }) {
 
     switch (el.type) {
       case 'header':
-        return <h1 className={`font-bold font-serif italic text-theme-secondary drop-shadow-md whitespace-nowrap select-none p-1 ${ringClass}`} style={{ ...baseStyle, fontSize: `${48}px` }}>{el.content}</h1>;
+        if (isEditMode) {
+          const textStyles = {
+            fontSize: `${48}px`, color: el.color || 'var(--color-secondary)', fontFamily: el.fontFamily || 'serif',
+            fontWeight: el.fontWeight || 'bold', fontStyle: el.fontStyle || 'italic', textDecoration: el.textDecoration || 'none',
+            textAlign: el.textAlign || 'left', width: `${Math.max((el.content || '').length * 28, 200)}px`, ...baseStyle
+          };
+          return (
+            <input 
+              type="text" 
+              value={el.content || ''} 
+              onChange={(e) => updateElement(el.id, { content: e.target.value })}
+              className={`bg-transparent border-b-2 border-theme-secondary/50 outline-none drop-shadow-md overflow-hidden p-1 ${ringClass}`}
+              style={textStyles}
+              onMouseDown={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
+              onFocus={() => setSelectedId(el.id)}
+            />
+          );
+        }
+        return <h1 className={`font-bold font-serif italic text-theme-secondary drop-shadow-md whitespace-nowrap select-none p-1 ${ringClass}`} style={{ ...baseStyle, fontSize: `${48}px`, color: el.color, fontFamily: el.fontFamily, fontWeight: el.fontWeight, fontStyle: el.fontStyle, textDecoration: el.textDecoration }}>{el.content}</h1>;
       
       case 'book':
+        const bookDynStyle = {
+          backgroundColor: bookBgColor || 'var(--color-secondary)',
+          color: bookTextColor || 'var(--color-primary)'
+        };
+        const currentReadingText = settingsData.currently_reading || club?.currently_reading || 'Обираємо книгу';
         return (
-          <div className={`bg-theme-secondary text-theme-primary p-6 shadow-xl border border-theme-primary/20 backdrop-blur-sm bg-opacity-95 select-none ${ringClass}`} style={baseStyle}>
+          <div className={`p-6 shadow-xl border border-theme-primary/20 backdrop-blur-sm bg-opacity-95 select-none rounded-2xl ${ringClass}`} style={{...baseStyle, ...bookDynStyle}}>
             <p className="text-sm opacity-80 mb-2">Зараз читаємо:</p>
-            <h3 className="font-bold font-serif text-xl whitespace-nowrap">{el.content}</h3>
+            <h3 className="font-bold font-serif text-2xl whitespace-nowrap">{currentReadingText}</h3>
           </div>
         );
       
       case 'info':
+      case 'info_block':
         let displayContent = el.content;
         
         if (typeof displayContent === 'string' && displayContent.startsWith('Учасників:')) {
@@ -549,72 +690,86 @@ export default function ClubDetailPage({ club, goBack }) {
           displayContent = `Учасників: ${liveCount}`;
         }
         
+        const infoDynStyle = {
+          backgroundColor: infoBgColor || 'transparent',
+          color: infoTextColor || 'var(--color-secondary)'
+        };
+
         return (
-          <div className={`bg-theme-primary text-theme-secondary p-4 shadow-lg border border-theme-secondary/20 text-center font-medium backdrop-blur-sm bg-opacity-90 select-none whitespace-nowrap ${ringClass}`} style={baseStyle}>
-            {displayContent}
+          <div className={`flex flex-col gap-4 opacity-90 font-medium text-lg select-none p-4 rounded-xl ${ringClass}`} style={{...baseStyle, ...infoDynStyle}}>
+             <div className="flex items-center gap-4">
+                <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <span>{members.length > 0 ? members.length : (club?.members_details?.length || club?.members_count || 0)} учасників</span>
+             </div>
+             <div className="flex items-center gap-4">
+                <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <span>Наступна зустріч: {club?.next_meeting || "Не заплановано"}</span>
+             </div>
+             <div className="flex items-center gap-4">
+                <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span>{club?.location || "Уточнюється"}</span>
+             </div>
           </div>
         );
 
       case 'bookshelf':
-        const displayBooks = clubBooks.slice(-10);
-        
+        return renderBookshelfVisual(true, ringClass, baseStyle);
+
+      case 'join_button':
+        const buttonText = isMember 
+          ? "Ви учасник" 
+          : (settingsData.is_open ? "Вступити в клуб" : "Подати заявку");
+          
         return (
-          <div className={`flex flex-col items-center select-none drop-shadow-xl p-2 ${ringClass}`} style={baseStyle}>
-            <div className="flex items-end justify-center gap-[6px] px-6 relative z-10 w-[660px] h-[220px]">
-              {displayBooks.length > 0 ? (
-                displayBooks.map((book, idx) => (
-                  <div 
-                    key={book.id || idx} 
-                    onClick={(e) => {
-                      if (!isEditMode) {
-                        e.stopPropagation(); 
-                        setSelectedBook(book);
-                        setActiveTab('bookDetail');
-                      }
-                    }}
-                    className={`w-[58px] ${spineHeights[idx % spineHeights.length]} ${spineColors[idx % spineColors.length]} rounded-[2px] shadow-[-3px_0_6px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0 border-l border-white/10 relative overflow-hidden ${!isEditMode ? 'cursor-pointer hover:-translate-y-4 hover:shadow-xl hover:brightness-110 transition-all duration-300 z-20' : ''}`}
-                  >
-                    <span 
-                      className="text-white/90 text-[14px] font-serif font-medium truncate w-full text-center tracking-wide px-1.5 drop-shadow-sm"
-                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: '95%' }}
-                    >
-                      {book.title}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="h-40 flex items-end justify-center px-8 pb-4 w-full">
-                  <span className="text-theme-secondary/50 font-serif italic text-base">Полиця порожня</span>
-                </div>
-              )}
-            </div>
-            
-            <div className={`w-[680px] h-[22px] bg-[#4a554e] rounded-full mt-[-1px] relative z-20 shadow-md ${!isEditMode ? 'cursor-pointer hover:brightness-110 transition-all' : ''}`}></div>
-            <div className={`w-[650px] h-[8px] bg-[#b4baba] rounded-full mt-1 opacity-80 ${!isEditMode ? 'cursor-pointer' : ''}`}></div>
-            
-            {!isEditMode && (
-              <div className="absolute -bottom-10 bg-theme-secondary text-theme-primary px-4 py-1.5 rounded-md text-sm font-bold opacity-0 hover:opacity-100 transition-opacity shadow-sm whitespace-nowrap cursor-pointer z-50 pointer-events-none">
-                Відкрити всі книги
-              </div>
-            )}
+          <div className={`p-2 ${ringClass}`} style={baseStyle}>
+            <button 
+              onClick={(e) => {
+                if (!isEditMode && !isMember) {
+                  e.stopPropagation();
+                  handleJoinClub();
+                }
+              }}
+              disabled={isMember && !isEditMode}
+              className="px-8 py-4 font-bold font-serif text-lg rounded-xl shadow-lg transition-transform hover:scale-105"
+              style={{ 
+                backgroundColor: el.bgColor || 'var(--color-secondary)', 
+                color: el.textColor || 'var(--color-primary)',
+                opacity: (isMember && !isEditMode) ? 0.6 : 1,
+                cursor: (isMember && !isEditMode) ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {buttonText}
+            </button>
           </div>
         );
 
       case 'poll':
         const totalVotes = (el.options || []).reduce((acc, curr) => acc + curr.votes, 0);
+        
+        const pollDynStyle = {
+          backgroundColor: pollBgColor || 'var(--color-primary)',
+          color: pollTextColor || 'var(--color-secondary)'
+        };
+        const barStyle = {
+          backgroundColor: pollBarColor || 'var(--color-secondary)',
+          opacity: pollBarColor ? 0.2 : 0.1
+        };
+
         return (
-          <div className={`bg-theme-primary text-theme-secondary p-6 shadow-xl border border-theme-secondary/20 rounded-xl select-none w-80 ${ringClass}`} style={baseStyle}>
+          <div className={`p-6 shadow-xl border border-theme-secondary/20 rounded-xl select-none w-80 ${ringClass}`} style={{...baseStyle, ...pollDynStyle}}>
             <h3 className="font-serif font-bold text-xl mb-4 italic text-center break-words">{el.question}</h3>
             
             <div className="flex flex-col gap-3">
               {(el.options || []).map((opt, i) => {
                 const percentage = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
                 return (
-                  <div key={i} className="relative w-full">
-                    <div className="absolute top-0 left-0 h-full bg-theme-secondary/10 rounded-md transition-all duration-500" style={{ width: `${percentage}%` }}></div>
-                    <button className="w-full relative z-10 flex justify-between items-center p-3 rounded-md border border-theme-secondary/20 bg-transparent text-sm cursor-pointer hover:border-theme-secondary transition-colors">
-                      <span className="font-bold font-serif truncate pr-2">{opt.title || 'Порожній варіант'}</span>
-                      <span className="shrink-0">{percentage}%</span>
+                  <div key={i} className="relative w-full rounded-md border border-theme-secondary/20 overflow-hidden">
+                    <div className="absolute top-0 left-0 h-full transition-all duration-500" style={{ width: `${percentage}%`, ...barStyle }}></div>
+                    
+                    <button className="w-full relative z-10 flex justify-between items-center p-3 bg-transparent text-sm cursor-pointer hover:bg-theme-secondary/5 transition-colors">
+                      <span className="font-bold font-serif truncate pr-2" style={{color: pollTextColor || 'var(--color-secondary)'}}>{opt.title || 'Порожній варіант'}</span>
+                      <span className="shrink-0" style={{color: pollTextColor || 'var(--color-secondary)'}}>{percentage}%</span>
                     </button>
                   </div>
                 )
@@ -624,11 +779,6 @@ export default function ClubDetailPage({ club, goBack }) {
             {!isEditMode && (
               <p className="text-xs text-center opacity-60 mt-4">
                 Дедлайн: скоро <br/> (Всього голосів: {totalVotes})
-              </p>
-            )}
-            {isEditMode && (
-              <p className="text-xs text-center opacity-50 mt-4 italic">
-                *Налаштуйте варіанти в лівому меню
               </p>
             )}
           </div>
@@ -644,10 +794,10 @@ export default function ClubDetailPage({ club, goBack }) {
         if (isEditMode) {
           return (
             <textarea 
-              value={el.content} 
+              value={el.content || ''} 
               onChange={(e) => updateElement(el.id, { content: e.target.value })}
               className={`bg-transparent border-b-2 border-theme-secondary/50 outline-none drop-shadow-sm resize-none overflow-hidden p-1 ${ringClass}`}
-              style={{ ...textStyles, height: `${(el.content.split('\n').length + 1) * 28}px` }}
+              style={{ ...textStyles, height: `${((el.content || '').split('\n').length + 1) * 28}px` }}
               onMouseDown={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
               onFocus={() => setSelectedId(el.id)}
             />
@@ -681,8 +831,24 @@ export default function ClubDetailPage({ club, goBack }) {
     return '';
   };
 
+  const selectedElement = elements.find(el => el.id === selectedId);
   const maxElY = elements.length > 0 ? Math.max(...elements.map(e => e.y || 0)) : 0;
   const canvasHeight = isEditMode ? Math.max(3000, maxElY + 2000) : Math.max(600, maxElY + 400);
+
+  const ColorInput = ({ label, value, onChange, reset }) => (
+    <div className="flex items-center justify-between gap-2 mb-2 bg-theme-background p-2 rounded-md border border-theme-secondary/10">
+      <span className="text-sm text-theme-secondary opacity-80 truncate">{label}</span>
+      <div className="flex items-center gap-2 shrink-0">
+        <input 
+          type="color" 
+          value={value || '#ffffff'} 
+          onChange={(e) => onChange(e.target.value)}
+          className="w-7 h-7 rounded cursor-pointer border-0 p-0 bg-transparent"
+        />
+        <button onClick={reset} className="text-red-500 hover:text-red-600 text-lg" title="Скинути до дефолту">&times;</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="w-full h-screen flex flex-col bg-theme-background transition-colors duration-500 overflow-hidden relative">
@@ -723,710 +889,380 @@ export default function ClubDetailPage({ club, goBack }) {
               {isEditMode ? 'Зберегти дизайн' : 'Редагувати простір'}
             </button>
           )}
-
-          {isAdmin && activeTab === 'bookshelf' && (
-            <button 
-              onClick={() => setIsAddBookModalOpen(true)}
-              className="px-6 py-2 rounded-md font-bold font-serif bg-theme-secondary text-theme-primary hover:opacity-80 transition-opacity shadow-md"
-            >
-              + Додати книгу
-            </button>
-          )}
         </div>
       </div>
 
       {activeTab === 'workspace' && (
-        <div className="flex flex-1 overflow-hidden relative">
+        <div className="flex flex-1 w-full h-full overflow-hidden relative">
           
-          {isEditMode && (
-            <div className="w-80 shrink-0 h-full bg-theme-primary border-r border-theme-secondary/10 p-6 flex flex-col gap-6 shadow-xl z-40 overflow-y-auto pb-32">
-              
-              {selectedElement && selectedElement.type === 'text' && (
-                <div className="bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20 mb-2 shrink-0">
-                  <h3 className="font-serif font-bold text-lg text-theme-secondary mb-4 flex justify-between items-center">
-                    <span>Текст</span>
-                    <button onClick={() => updateElement(selectedElement.id, { scale: 1, rotation: 0 })} className="text-xs opacity-70 underline hover:opacity-100">Скинути розмір/кут</button>
-                  </h3>
-
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-sm text-theme-secondary opacity-80">Колір:</span>
-                    <input 
-                      type="color" 
-                      value={selectedElement.color || '#F4E7D3'} 
-                      onChange={(e) => updateElement(selectedElement.id, { color: e.target.value })}
-                      className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <span className="block text-sm text-theme-secondary opacity-80 mb-1">Шрифт:</span>
-                    <select 
-                      value={selectedElement.fontFamily || 'serif'}
-                      onChange={(e) => updateElement(selectedElement.id, { fontFamily: e.target.value })}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-1.5 text-sm text-theme-secondary"
-                    >
-                      {fontOptions.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="flex gap-2 mb-4">
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold' })}
-                      className={`flex-1 py-1 rounded font-bold border ${selectedElement.fontWeight === 'bold' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >B</button>
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic' })}
-                      className={`flex-1 py-1 rounded italic border ${selectedElement.fontStyle === 'italic' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >I</button>
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'underline' ? 'none' : 'underline' })}
-                      className={`flex-1 py-1 rounded underline border ${selectedElement.textDecoration === 'underline' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >U</button>
-                  </div>
-
-                  <div className="flex gap-2 mb-2">
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { textAlign: 'left' })}
-                      className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'left' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >Left</button>
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { textAlign: 'center' })}
-                      className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'center' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >Center</button>
-                    <button 
-                      onClick={() => updateElement(selectedElement.id, { textAlign: 'right' })}
-                      className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'right' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
-                    >Right</button>
+          {!isEditMode && !hasCustomDesign ? (
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-16 w-full custom-scrollbar">
+              <div className="max-w-4xl mx-auto bg-theme-primary rounded-3xl p-8 sm:p-12 shadow-xl border border-theme-secondary/10">
+                
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
+                  <h1 className="text-4xl sm:text-5xl font-serif font-bold italic text-theme-secondary">{club?.name}</h1>
+                  <div className="flex flex-col items-end gap-3 shrink-0">
+                    <span className="bg-theme-secondary text-theme-primary text-sm font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shrink-0 w-full text-center">
+                      {club?.format_display}
+                    </span>
+                    {!isMember && !isAdmin && (
+                      <button 
+                        onClick={handleJoinClub}
+                        className="w-full px-6 py-2 bg-theme-secondary text-theme-primary font-bold font-serif rounded-lg shadow-md hover:opacity-90 transition-opacity whitespace-nowrap"
+                      >
+                        {settingsData.is_open ? "Вступити" : "Подати заявку"}
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {selectedElement && selectedElement.type === 'poll' && (
-                <div className="bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20 mb-2 shrink-0">
-                  <h3 className="font-serif font-bold text-lg text-theme-secondary mb-4 flex justify-between items-center">
-                    <span>Опитування</span>
-                    <button onClick={() => updateElement(selectedElement.id, { scale: 1, rotation: 0 })} className="text-xs opacity-70 underline hover:opacity-100">Скинути розмір/кут</button>
-                  </h3>
+                <p className="text-lg opacity-80 text-theme-secondary leading-relaxed mb-10 whitespace-pre-wrap">
+                  {club?.description}
+                </p>
 
-                  <div className="mb-4">
-                    <span className="block text-sm text-theme-secondary opacity-80 mb-1">Питання:</span>
-                    <input
-                      type="text"
-                      value={selectedElement.question || ''}
-                      onChange={(e) => updateElement(selectedElement.id, { question: e.target.value })}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-sm text-theme-secondary focus:outline-none focus:border-theme-secondary"
-                      placeholder="Введіть питання..."
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                  <div className="space-y-4 text-theme-secondary opacity-80 font-medium">
+                    <div className="flex items-center gap-4">
+                      <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                      <span>{members.length > 0 ? members.length : (club?.members_details?.length || club?.members_count || 0)} учасників</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                      <span>Наступна зустріч: {club?.next_meeting || 'Не заплановано'}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                      <span>{club?.location || 'Уточнюється'}</span>
+                    </div>
                   </div>
 
-                  <div className="mb-2">
-                    <span className="block text-sm text-theme-secondary opacity-80 mb-2">Варіанти відповідей:</span>
-                    <div className="flex flex-col gap-2">
-                      {(selectedElement.options || []).map((opt, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={opt.title}
-                            onChange={(e) => {
-                              const newOptions = [...selectedElement.options];
-                              newOptions[idx].title = e.target.value;
-                              updateElement(selectedElement.id, { options: newOptions });
-                            }}
-                            className="flex-1 bg-theme-background border border-theme-secondary/30 rounded p-1.5 text-sm text-theme-secondary focus:outline-none focus:border-theme-secondary min-w-0"
-                            placeholder="Варіант..."
-                          />
-                          <button
-                            onClick={() => {
-                              const newOptions = selectedElement.options.filter((_, i) => i !== idx);
-                              updateElement(selectedElement.id, { options: newOptions });
-                            }}
-                            className="text-red-500 hover:text-red-700 px-2 font-bold transition-colors"
-                            title="Видалити варіант"
-                          >
-                            ×
-                          </button>
+                  <div className="bg-theme-secondary text-theme-primary rounded-2xl p-6 shadow-md flex flex-col justify-center">
+                    <p className="text-sm opacity-80 mb-2">Зараз читають:</p>
+                    <p className="font-bold font-serif text-2xl">{settingsData.currently_reading || club?.currently_reading || "Обираємо книгу"}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-theme-secondary/10 pt-10">
+                  <h3 className="text-2xl font-bold italic font-serif text-theme-secondary mb-8 text-center">Книжкова полиця клубу</h3>
+                  <div className="flex justify-center">
+                    {renderBookshelfVisual(false)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {isEditMode && (
+                <div className="w-80 shrink-0 h-full bg-theme-primary border-r border-theme-secondary/10 p-6 flex flex-col gap-6 shadow-xl z-40 overflow-y-auto pb-32 custom-scrollbar">
+                  
+                  {selectedElement && (selectedElement.type === 'text' || selectedElement.type === 'header') && (
+                    <div className="bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20 mb-2 shrink-0">
+                      <h3 className="font-serif font-bold text-lg text-theme-secondary mb-4 flex justify-between items-center">
+                        <span>Текст</span>
+                        <button onClick={() => updateElement(selectedElement.id, { scale: 1, rotation: 0 })} className="text-xs opacity-70 underline hover:opacity-100">Скинути розмір</button>
+                      </h3>
+
+                      <div className="flex items-center gap-3 mb-4">
+                        <span className="text-sm text-theme-secondary opacity-80">Колір:</span>
+                        <input 
+                          type="color" 
+                          value={selectedElement.color || '#F4E7D3'} 
+                          onChange={(e) => updateElement(selectedElement.id, { color: e.target.value })}
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <span className="block text-sm text-theme-secondary opacity-80 mb-1">Шрифт:</span>
+                        <select 
+                          value={selectedElement.fontFamily || 'serif'}
+                          onChange={(e) => updateElement(selectedElement.id, { fontFamily: e.target.value })}
+                          className="w-full bg-theme-background border border-theme-secondary/30 rounded p-1.5 text-sm text-theme-secondary"
+                        >
+                          {fontOptions.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-2 mb-4">
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                          className={`flex-1 py-1 rounded font-bold border ${selectedElement.fontWeight === 'bold' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >B</button>
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic' })}
+                          className={`flex-1 py-1 rounded italic border ${selectedElement.fontStyle === 'italic' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >I</button>
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { textDecoration: selectedElement.textDecoration === 'underline' ? 'none' : 'underline' })}
+                          className={`flex-1 py-1 rounded underline border ${selectedElement.textDecoration === 'underline' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >U</button>
+                      </div>
+
+                      <div className="flex gap-2 mb-2">
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { textAlign: 'left' })}
+                          className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'left' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >Left</button>
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { textAlign: 'center' })}
+                          className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'center' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >Center</button>
+                        <button 
+                          onClick={() => updateElement(selectedElement.id, { textAlign: 'right' })}
+                          className={`flex-1 py-1 text-sm rounded border ${selectedElement.textAlign === 'right' ? 'bg-theme-secondary text-theme-primary border-theme-secondary' : 'bg-theme-background text-theme-secondary border-theme-secondary/30 hover:bg-theme-secondary/10'}`}
+                        >Right</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedElement && selectedElement.type === 'poll' && (
+                    <div className="bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20 mb-2 shrink-0">
+                      <h3 className="font-serif font-bold text-lg text-theme-secondary mb-4 flex justify-between items-center">
+                        <span>Опитування</span>
+                      </h3>
+
+                      <div className="mb-4">
+                        <span className="block text-sm text-theme-secondary opacity-80 mb-1">Питання:</span>
+                        <input
+                          type="text"
+                          value={selectedElement.question || ''}
+                          onChange={(e) => updateElement(selectedElement.id, { question: e.target.value })}
+                          className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-sm text-theme-secondary focus:outline-none focus:border-theme-secondary"
+                        />
+                      </div>
+
+                      <div className="mb-2">
+                        <span className="block text-sm text-theme-secondary opacity-80 mb-2">Варіанти:</span>
+                        <div className="flex flex-col gap-2">
+                          {(selectedElement.options || []).map((opt, idx) => (
+                            <div key={idx} className="flex gap-2">
+                              <input
+                                type="text"
+                                value={opt.title}
+                                onChange={(e) => {
+                                  const newOptions = [...selectedElement.options];
+                                  newOptions[idx].title = e.target.value;
+                                  updateElement(selectedElement.id, { options: newOptions });
+                                }}
+                                className="flex-1 bg-theme-background border border-theme-secondary/30 rounded p-1.5 text-sm text-theme-secondary focus:outline-none focus:border-theme-secondary min-w-0"
+                              />
+                              <button onClick={() => updateElement(selectedElement.id, { options: selectedElement.options.filter((_, i) => i !== idx) })} className="text-red-500 font-bold">×</button>
+                            </div>
+                          ))}
                         </div>
+                        <button onClick={() => updateElement(selectedElement.id, { options: [...(selectedElement.options || []), { title: `Новий варіант`, votes: 0 }] })} className="mt-3 w-full text-xs py-2 border border-theme-secondary/30 rounded-md hover:bg-theme-secondary/10 text-theme-secondary font-bold">+ Додати варіант</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedElement && selectedElement.type === 'join_button' && (
+                    <div className="bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20 mb-2 shrink-0">
+                      <h3 className="font-serif font-bold text-lg text-theme-secondary mb-4 flex justify-between items-center">
+                        <span>Кнопка вступу</span>
+                        <button onClick={() => updateElement(selectedElement.id, { scale: 1, rotation: 0 })} className="text-xs opacity-70 underline hover:opacity-100">Скинути розмір</button>
+                      </h3>
+                      <ColorInput label="Фон кнопки" value={selectedElement.bgColor} onChange={(v) => updateElement(selectedElement.id, { bgColor: v })} reset={() => updateElement(selectedElement.id, { bgColor: '' })} />
+                      <ColorInput label="Колір тексту" value={selectedElement.textColor} onChange={(v) => updateElement(selectedElement.id, { textColor: v })} reset={() => updateElement(selectedElement.id, { textColor: '' })} />
+                    </div>
+                  )}
+
+                  <div className="shrink-0 bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20">
+                    <h3 className="font-serif font-bold text-xl text-theme-secondary mb-3">Фон простору</h3>
+                    
+                    <div className="flex gap-2 mb-3">
+                      <button onClick={() => {setBgPattern('dots'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'dots' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Крапки</button>
+                      <button onClick={() => {setBgPattern('grid'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'grid' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Сітка</button>
+                      <button onClick={() => {setBgPattern('none'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'none' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Чистий</button>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm text-theme-secondary opacity-80">Колір:</span>
+                      <input 
+                        type="color" 
+                        value={bgColor === 'transparent' ? '#ffffff' : bgColor} 
+                        onChange={(e) => setBgColor(e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
+                      />
+                    </div>
+
+                    <label className="block w-full text-center bg-theme-secondary text-theme-primary py-2 rounded-md hover:opacity-90 cursor-pointer transition-opacity font-medium text-sm">
+                      {customBg ? 'Змінити картинку' : 'Завантажити картинку'}
+                      <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
+                    </label>
+                    
+                    {customBg && (
+                      <button 
+                        onClick={() => setCustomBg(null)} 
+                        className="w-full mt-3 text-center text-red-500 hover:text-red-600 py-1 text-sm font-bold border border-red-500/30 rounded"
+                      >
+                        Видалити картинку
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="shrink-0 bg-theme-secondary/5 p-4 rounded-lg border border-theme-secondary/20">
+                    <h3 className="font-serif font-bold text-xl text-theme-secondary mb-4 mt-1">Стилізація елементів</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-bold text-theme-secondary mb-2 text-xs opacity-80 uppercase tracking-wide">"Зараз читаємо"</h4>
+                        <ColorInput label="Фон блоку" value={bookBgColor} onChange={setBookBgColor} reset={() => setBookBgColor('')} />
+                        <ColorInput label="Колір тексту" value={bookTextColor} onChange={setBookTextColor} reset={() => setBookTextColor('')} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-theme-secondary mb-2 text-xs opacity-80 uppercase tracking-wide">"Інфо учасників"</h4>
+                        <ColorInput label="Фон блоку" value={infoBgColor} onChange={setInfoBgColor} reset={() => setInfoBgColor('')} />
+                        <ColorInput label="Колір тексту" value={infoTextColor} onChange={setInfoTextColor} reset={() => setInfoTextColor('')} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-theme-secondary mb-2 text-xs opacity-80 uppercase tracking-wide">Книжкова полиця</h4>
+                        <ColorInput label="Колір дерева" value={shelfColor} onChange={setShelfColor} reset={() => setShelfColor('#4a554e')} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-theme-secondary mb-2 text-xs opacity-80 uppercase tracking-wide">Опитування</h4>
+                        <ColorInput label="Фон блоку" value={pollBgColor} onChange={setPollBgColor} reset={() => setPollBgColor('')} />
+                        <ColorInput label="Колір тексту" value={pollTextColor} onChange={setPollTextColor} reset={() => setPollTextColor('')} />
+                        <ColorInput label="Колір смужки" value={pollBarColor} onChange={setPollBarColor} reset={() => setPollBarColor('')} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <h3 className="font-serif font-bold text-xl text-theme-secondary mb-3 mt-4">Додати елементи</h3>
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      <button onClick={addText} className="bg-theme-secondary/10 text-theme-secondary py-2 rounded-md font-medium text-sm">+ Текст</button>
+                      <label className="text-center bg-theme-secondary/10 text-theme-secondary py-2 rounded-md font-medium text-sm cursor-pointer">
+                        + Фото <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                      </label>
+                      <button onClick={addInfoBlock} className="bg-theme-secondary/10 text-theme-secondary py-2 rounded-md font-medium text-sm">+ Інфо</button>
+                      <button onClick={addPoll} className="bg-theme-secondary/10 text-theme-secondary py-2 rounded-md font-medium text-sm">+ Опитування</button>
+                      <button onClick={addBookshelf} className="col-span-2 bg-theme-secondary text-theme-primary py-2 rounded-md font-bold font-serif shadow-sm">+ Полиця</button>
+                      <button onClick={addJoinButton} className="col-span-2 bg-[#4A554E] text-white py-2 rounded-md font-bold font-serif shadow-sm hover:bg-[#3A453E] transition-colors">+ Кнопка вступу</button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pb-4">
+                      {availableStickers.map(sticker => (
+                        <button key={sticker.id} onClick={() => addSticker(sticker)} className="flex flex-col items-center p-3 border border-theme-secondary/20 rounded-lg hover:bg-theme-secondary/10">
+                          <img src={sticker.src} alt={sticker.alt} className="w-10 h-10 object-contain mb-2 mix-blend-multiply" />
+                          <span className="text-xs text-theme-secondary opacity-80 text-center">{sticker.alt}</span>
+                        </button>
                       ))}
                     </div>
-                    
-                    <button
-                      onClick={() => {
-                        const newOptions = [...(selectedElement.options || []), { title: `Новий варіант`, votes: 0 }];
-                        updateElement(selectedElement.id, { options: newOptions });
-                      }}
-                      className="mt-3 w-full text-xs py-2 border border-theme-secondary/30 rounded-md hover:bg-theme-secondary/10 text-theme-secondary font-bold transition-colors"
-                    >
-                      + Додати варіант
+                  </div>
+                  
+                  <div className="mt-auto pt-6 border-t border-theme-secondary/20 shrink-0">
+                    <button onClick={handleResetDesign} className="w-full text-red-500 hover:text-red-600 font-medium py-2 border border-red-500/20 rounded-lg bg-red-500/5">
+                      Скинути дизайн до дефолту
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="shrink-0">
-                <h3 className="font-serif font-bold text-xl text-theme-secondary mb-3">Фон простору</h3>
-                
-                <div className="flex gap-2 mb-3">
-                  <button onClick={() => {setBgPattern('dots'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'dots' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Крапки</button>
-                  <button onClick={() => {setBgPattern('grid'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'grid' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Сітка</button>
-                  <button onClick={() => {setBgPattern('none'); setCustomBg(null);}} className={`flex-1 py-1 border rounded text-sm ${bgPattern === 'none' ? 'border-theme-secondary bg-theme-secondary/10' : 'border-theme-secondary/20'}`}>Чистий</button>
-                </div>
-
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-sm text-theme-secondary opacity-80">Колір фону:</span>
-                  <input 
-                    type="color" 
-                    value={bgColor === 'transparent' ? '#ffffff' : bgColor} 
-                    onChange={(e) => setBgColor(e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                  />
-                </div>
-
-                <label className="block w-full text-center bg-theme-secondary/10 text-theme-secondary py-2 rounded-md border border-theme-secondary/20 hover:bg-theme-secondary/20 cursor-pointer transition-colors font-medium text-sm">
-                  Завантажити картинку фону
-                  <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
-                </label>
-              </div>
-
-              <div className="shrink-0">
-                <h3 className="font-serif font-bold text-xl text-theme-secondary mb-3 mt-4">Елементи</h3>
-                
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                  <button onClick={addText} className="bg-theme-secondary/10 text-theme-secondary py-2 rounded-md border border-theme-secondary/20 hover:bg-theme-secondary/20 transition-colors font-medium text-sm">
-                    + Текст
-                  </button>
-                  <label className="text-center bg-theme-secondary/10 text-theme-secondary py-2 rounded-md border border-theme-secondary/20 hover:bg-theme-secondary/20 transition-colors font-medium text-sm cursor-pointer">
-                    + Фото
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  </label>
-                  <button onClick={addBookshelf} className="col-span-2 bg-theme-secondary text-theme-primary py-2 rounded-md font-bold font-serif hover:opacity-90 transition-opacity shadow-sm">
-                    + Книжкова полиця
-                  </button>
-                  <button onClick={addPoll} className="col-span-2 bg-theme-secondary/10 text-theme-secondary py-2 rounded-md font-medium text-sm border border-theme-secondary/20 hover:bg-theme-secondary/20 transition-colors">
-                    + Опитування
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pb-4">
-                  {availableStickers.map(sticker => (
-                    <button 
-                      key={sticker.id}
-                      onClick={() => addSticker(sticker)}
-                      className="flex flex-col items-center justify-center p-3 border border-theme-secondary/20 rounded-lg hover:bg-theme-secondary/10 transition-colors"
-                    >
-                      <img src={sticker.src} alt={sticker.alt} className="w-10 h-10 object-contain mb-2 mix-blend-multiply" />
-                      <span className="text-xs text-theme-secondary opacity-80 text-center">{sticker.alt}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="mt-auto pt-6 border-t border-theme-secondary/20 shrink-0">
-                <button onClick={handleResetDesign} className="w-full text-red-500 hover:text-red-600 font-medium py-2">
-                  Скинути до дефолту
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div 
-            ref={scrollRef} 
-            className="flex-1 h-full overflow-auto relative"
-            style={getBackgroundStyle()}
-          >
-            <div 
-              ref={containerRef}
-              style={{ minHeight: `${canvasHeight}px` }}
-              className={`w-full relative ${getPatternClass()} ${isEditMode ? 'select-none' : ''}`}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onClick={deselectElement}
-            >
-              {isEditMode && (
-                <div className="absolute top-0 left-0 min-w-full min-h-[200vh] pointer-events-none"></div>
-              )}
-              
-              {elements.map((el) => {
-                const isSelected = selectedId === el.id;
-                return (
-                  <div
-                    key={el.id}
-                    id={`draggable-${el.id}`}
-                    onMouseDown={(e) => handleMouseDown(e, el.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!isEditMode && el.type === 'bookshelf') {
-                        setActiveTab('bookshelf');
-                      }
-                    }} 
-                    style={{
-                      position: 'absolute',
-                      left: `${el.x}px`,
-                      top: `${el.y}px`,
-                      cursor: isEditMode 
-                        ? (draggingId === el.id ? 'grabbing' : 'grab') 
-                        : (el.type === 'bookshelf' ? 'pointer' : 'default'),
-                      zIndex: (draggingId === el.id || isSelected) ? 50 : 10
-                    }}
-                    className="w-max h-max group"
-                  >
-                    
-                    {isEditMode && isSelected && (
-                      <div className="absolute -top-14 left-0 bg-white shadow-lg rounded-md border border-gray-200 flex gap-1 p-1 z-50">
-                        <button 
-                          onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { scale: Math.min((el.scale || 1) + 0.2, 5) }); }}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold"
-                        >+</button>
-                        <button 
-                          onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { scale: Math.max((el.scale || 1) - 0.2, 0.3) }); }}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold"
-                        >-</button>
-                        
-                        <button 
-                          onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { rotation: (el.rotation || 0) - 15 }); }}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-lg"
-                          title="Повернути вліво"
-                        >↺</button>
-                        <button 
-                          onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { rotation: (el.rotation || 0) + 15 }); }}
-                          className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-lg"
-                          title="Повернути вправо"
-                        >↻</button>
-
-                        <button 
-                          onMouseDown={(e) => { e.stopPropagation(); deleteElement(el.id); }}
-                          className="w-8 h-8 flex items-center justify-center bg-red-100 hover:bg-red-200 rounded text-red-600 font-bold ml-1"
-                        >🗑</button>
+              <div 
+                ref={scrollRef} 
+                className="flex-1 h-full overflow-auto relative custom-scrollbar"
+                style={getBackgroundStyle()}
+              >
+                <div 
+                  ref={containerRef}
+                  style={{ minHeight: `${canvasHeight}px` }}
+                  className={`w-full relative ${getPatternClass()} ${isEditMode ? 'select-none' : ''}`}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onClick={deselectElement}
+                >
+                  {isEditMode && <div className="absolute top-0 left-0 min-w-full min-h-[200vh] pointer-events-none"></div>}
+                  
+                  {elements.map((el) => {
+                    const isSelected = selectedId === el.id;
+                    return (
+                      <div
+                        key={el.id}
+                        id={`draggable-${el.id}`}
+                        onMouseDown={(e) => handleMouseDown(e, el.id)}
+                        onClick={(e) => { e.stopPropagation(); if (!isEditMode && el.type === 'bookshelf') setActiveTab('bookshelf'); }} 
+                        style={{
+                          position: 'absolute', left: `${el.x}px`, top: `${el.y}px`,
+                          cursor: isEditMode ? (draggingId === el.id ? 'grabbing' : 'grab') : (el.type === 'bookshelf' ? 'pointer' : 'default'),
+                          zIndex: (draggingId === el.id || isSelected) ? 50 : 10
+                        }}
+                        className="w-max h-max group"
+                      >
+                        {isEditMode && isSelected && (
+                          <div className="absolute -top-14 left-0 bg-white shadow-lg rounded-md border border-gray-200 flex gap-1 p-1 z-50">
+                            <button onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { scale: Math.min((el.scale || 1) + 0.1, 4) }); }} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">+</button>
+                            <button onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { scale: Math.max((el.scale || 1) - 0.1, 0.4) }); }} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold">-</button>
+                            <button onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { rotation: (el.rotation || 0) - 15 }); }} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-lg">↺</button>
+                            <button onMouseDown={(e) => { e.stopPropagation(); updateElement(el.id, { rotation: (el.rotation || 0) + 15 }); }} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded text-gray-700 font-bold text-lg">↻</button>
+                            <button onMouseDown={(e) => { e.stopPropagation(); deleteElement(el.id); }} className="w-8 h-8 flex items-center justify-center bg-red-100 hover:bg-red-200 rounded text-red-600 font-bold ml-1">🗑</button>
+                          </div>
+                        )}
+                        {renderElement(el, isSelected)}
                       </div>
-                    )}
-
-                    {renderElement(el, isSelected)}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {activeTab === 'bookshelf' && (
-        <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
-          <div className="max-w-6xl mx-auto relative">
-            
-            <button 
-              onClick={() => setActiveTab('workspace')}
-              className="absolute -top-4 left-0 text-theme-secondary opacity-60 hover:opacity-100 font-serif font-bold transition-opacity"
-            >
-              &larr; До простору
-            </button>
-
-            <h2 className="text-4xl font-serif font-bold text-theme-secondary mb-10 italic mt-8">Книжкова полиця клубу</h2>
-            
-            {clubBooks.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {clubBooks.map(book => (
-                  <div 
-                    key={book.id} 
-                    onClick={() => { setSelectedBook(book); setActiveTab('bookDetail'); }}
-                    className="bg-theme-primary rounded-xl p-4 shadow-sm border border-theme-secondary/10 hover:shadow-lg transition-all cursor-pointer group hover:-translate-y-1"
-                  >
-                    <div className="aspect-[2/3] bg-theme-secondary/10 rounded-lg mb-4 overflow-hidden relative">
-                      {book.cover_image_url ? (
-                        <img src={book.cover_image_url} alt={book.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-theme-secondary opacity-50 font-serif">Обкладинка</div>
-                      )}
-                      
-                      {isAdmin && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleRemoveBook(book.id); }}
-                          className="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center font-bold hover:bg-red-600 shadow-md"
-                          title="Видалити з полиці"
-                        >
-                          &times;
-                        </button>
-                      )}
-                    </div>
-                    <h3 className="font-bold font-serif text-lg text-theme-secondary line-clamp-1">{book.title}</h3>
-                    <p className="text-sm opacity-70 text-theme-secondary">{book.author}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20 bg-theme-primary rounded-2xl border border-theme-secondary/10 border-dashed">
-                <p className="text-xl font-serif text-theme-secondary opacity-70 mb-4">Полиця поки порожня.</p>
-                {isAdmin && (
-                  <button 
-                    onClick={() => setIsAddBookModalOpen(true)}
-                    className="px-6 py-2 rounded-md font-bold font-serif bg-theme-secondary text-theme-primary hover:opacity-80 transition-opacity shadow-md"
-                  >
-                    Додати першу книгу
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+        <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16 custom-scrollbar relative">
+          <button onClick={() => setActiveTab('workspace')} className="absolute top-8 left-8 text-theme-secondary opacity-60 hover:opacity-100 font-serif font-bold transition-opacity z-10">
+            &larr; До простору
+          </button>
+          
+          <MyBookshelfManager 
+             goBack={() => setActiveTab('workspace')}
+             setCurrentPage={(page) => {
+               if(page === 'book_detail') setActiveTab('bookDetail');
+             }} 
+             setSelectedBook={setSelectedBook}
+             isClubMode={true}
+             clubId={club.id}
+             initialBooks={clubBooks}
+             isAdmin={isAdmin}
+             onBooksUpdate={(updatedBooks) => setClubBooks(updatedBooks)}
+          />
         </div>
       )}
 
       {activeTab === 'bookDetail' && selectedBook && (
-        <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
-          <div className="max-w-4xl mx-auto bg-theme-primary rounded-3xl p-10 shadow-lg border border-theme-secondary/10 relative">
-            
-            <button 
-              onClick={() => { setActiveTab('workspace'); setSelectedBook(null); }}
-              className="absolute top-6 left-8 text-theme-secondary opacity-60 hover:opacity-100 font-serif font-bold transition-opacity"
-            >
-              &larr; Закрити деталі
-            </button>
-
-            <div className="mt-8 flex flex-col md:flex-row gap-12">
-              <div className="w-full md:w-1/3 shrink-0">
-                <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-theme-secondary/20">
-                   {selectedBook.cover_image_url ? (
-                      <img src={selectedBook.cover_image_url} alt={selectedBook.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-theme-secondary/10 flex items-center justify-center text-theme-secondary font-serif">Немає обкладинки</div>
-                    )}
-                </div>
-              </div>
-
-              <div className="w-full md:w-2/3 flex flex-col">
-                <h1 className="text-4xl sm:text-5xl font-bold font-serif italic text-theme-secondary mb-2">
-                  {selectedBook.title}
-                </h1>
-                <p className="text-2xl text-theme-secondary opacity-80 font-serif mb-8 border-b border-theme-secondary/10 pb-6">
-                  {selectedBook.author}
-                </p>
-
-                <h3 className="font-bold text-lg text-theme-secondary mb-2 uppercase tracking-wide opacity-50">Опис</h3>
-                <p className="text-lg text-theme-secondary leading-relaxed opacity-90 mb-8 whitespace-pre-wrap">
-                  {selectedBook.description || "На жаль, детальний опис для цієї книги ще не додано."}
-                </p>
-
-                {isAdmin && (
-                  <div className="mt-auto pt-8 flex gap-4">
-                    <button 
-                      onClick={() => {
-                        handleRemoveBook(selectedBook.id);
-                        if (clubBooks.find(b => b.id === selectedBook.id)) {
-                          setActiveTab('workspace');
-                        }
-                      }}
-                      className="px-6 py-3 border-2 border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors"
-                    >
-                      Видалити книгу з клубу
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+         <div className="flex-1 h-full overflow-y-auto custom-scrollbar relative bg-theme-background">
+           <BookDetailPage 
+              book={selectedBook} 
+              goBack={() => { setActiveTab('workspace'); setSelectedBook(null); }} 
+           />
+           
+           {isAdmin && (
+             <div className="absolute top-10 right-10 z-50">
+               <button onClick={() => { handleRemoveBook(selectedBook.id); setActiveTab('workspace'); }} className="px-6 py-3 border-2 border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors bg-theme-primary">
+                 Видалити з клубу
+               </button>
+             </div>
+           )}
+         </div>
       )}
 
       {activeTab === 'settings' && isAdmin && (
-        <div className="flex-1 h-full overflow-y-auto p-8 sm:p-16">
-          <div className="max-w-5xl mx-auto bg-theme-primary rounded-3xl p-10 shadow-lg border border-theme-secondary/10">
-            <h2 className="text-4xl font-serif font-bold text-theme-secondary mb-10 italic">Налаштування клубу</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              
-              <div>
-                <h3 className="text-xl font-bold text-theme-secondary mb-6 border-b border-theme-secondary/10 pb-2">Загальна інформація</h3>
-                
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <label className="block text-sm text-theme-secondary opacity-80 mb-1">Назва клубу</label>
-                    <input 
-                      type="text" 
-                      value={settingsData.name}
-                      onChange={(e) => setSettingsData({...settingsData, name: e.target.value})}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary" 
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-theme-secondary opacity-80 mb-1">Опис</label>
-                    <textarea 
-                      value={settingsData.description}
-                      onChange={(e) => setSettingsData({...settingsData, description: e.target.value})}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary h-32 resize-none" 
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-theme-secondary opacity-80 mb-1">Формат зустрічей</label>
-                    <select 
-                      value={settingsData.format}
-                      onChange={(e) => setSettingsData({...settingsData, format: e.target.value})}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary"
-                    >
-                      <option value="ON">Онлайн</option>
-                      <option value="OF">Офлайн</option>
-                      <option value="HY">Гібрид (Онлайн + Офлайн)</option>
-                    </select>
-                  </div>
-
-                  {/* НОВИЙ БЛОК: Вибір поточної книги */}
-                  <div>
-                    <label className="block text-sm text-theme-secondary opacity-80 mb-1">Поточна книга</label>
-                    <select 
-                      value={settingsData.currently_reading}
-                      onChange={(e) => setSettingsData({...settingsData, currently_reading: e.target.value})}
-                      className="w-full bg-theme-background border border-theme-secondary/30 rounded p-2 text-theme-secondary focus:outline-none focus:border-theme-secondary"
-                    >
-                      <option value="">Не обрано</option>
-                      {clubBooks.map(book => (
-                        <option key={book.id} value={book.title}>
-                          {book.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-3 mt-2">
-                    <input 
-                      type="checkbox" 
-                      id="isOpenCheckbox"
-                      checked={settingsData.is_open}
-                      onChange={(e) => setSettingsData({...settingsData, is_open: e.target.checked})}
-                      className="w-5 h-5 accent-theme-secondary"
-                    />
-                    <label htmlFor="isOpenCheckbox" className="text-theme-secondary font-medium cursor-pointer">
-                      Відкритий клуб (вільний вступ)
-                    </label>
-                  </div>
-                  {!settingsData.is_open && (
-                    <p className="text-xs text-theme-secondary opacity-60 mt-[-10px] ml-8">
-                      Користувачі зможуть подати заявку на вступ, яку вам потрібно буде схвалити.
-                    </p>
-                  )}
-
-                  <button 
-                    onClick={handleSaveSettings}
-                    className="mt-4 w-full bg-theme-secondary text-theme-primary font-bold py-3 rounded-lg hover:opacity-90 transition-opacity shadow-md"
-                  >
-                    Зберегти зміни
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-theme-secondary mb-6 border-b border-theme-secondary/10 pb-2">Керування учасниками</h3>
-                
-                {!settingsData.is_open && (
-                  <div className="mb-8">
-                    <h4 className="font-bold text-theme-secondary mb-3 opacity-80 text-sm uppercase">Нові заявки ({joinRequests.length})</h4>
-                    
-                    {joinRequests.length === 0 ? (
-                      <p className="text-sm opacity-60 italic text-theme-secondary">Немає нових заявок.</p>
-                    ) : (
-                      <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                        {joinRequests.map((req) => (
-                          <div key={req.id} className="flex justify-between items-center bg-theme-background border border-theme-secondary/20 p-3 rounded-md">
-                            <span className="font-serif font-bold text-theme-secondary">{req.user?.username || req.username || 'Невідомий'}</span>
-                            <div className="flex gap-2">
-                              <button 
-                                onClick={() => handleRequestAction(req.id, 'accept')}
-                                className="text-green-600 bg-green-100 hover:bg-green-200 px-3 py-1 rounded text-xs font-bold transition-colors"
-                              >
-                                Прийняти
-                              </button>
-                              <button 
-                                onClick={() => handleRequestAction(req.id, 'reject')}
-                                className="text-red-600 bg-red-100 hover:bg-red-200 px-3 py-1 rounded text-xs font-bold transition-colors"
-                              >
-                                Відхилити
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-bold text-theme-secondary mb-3 opacity-80 text-sm uppercase">Поточні учасники</h4>
-                  <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2">
-                    
-                    <div className="flex justify-between items-center bg-theme-secondary/5 border border-theme-secondary/10 p-3 rounded-md">
-                      <div>
-                        <span className="font-serif font-bold text-theme-secondary">{club?.creator_details?.username || 'Admin'}</span>
-                        <span className="ml-2 text-xs bg-theme-secondary text-white px-2 py-0.5 rounded-full">Власник</span>
-                      </div>
-                    </div>
-                    
-                    {members.filter(m => m.username !== club?.creator_details?.username).length === 0 ? (
-                      <p className="text-sm opacity-60 italic text-theme-secondary mt-2">Більше немає учасників.</p>
-                    ) : (
-                      members
-                        .filter(m => m.username !== club?.creator_details?.username)
-                        .map((member) => (
-                        <div key={member.id} className="flex justify-between items-center bg-theme-background border border-theme-secondary/10 p-3 rounded-md">
-                          <span className="font-serif font-medium text-theme-secondary">{member.username}</span>
-                          
-                          <div className="flex gap-2 items-center">
-                            {member.role === 'AD' ? (
-                               <>
-                                 <span className="text-xs font-bold text-theme-secondary opacity-70 mr-2">Адмін</span>
-                                 {isOwner && (
-                                   <button 
-                                     onClick={() => handleDemoteMember(member.id)}
-                                     className="text-theme-secondary bg-theme-secondary/10 hover:bg-theme-secondary/20 px-2 py-1 rounded text-xs transition-colors mr-2" 
-                                     title="Забрати права адміністратора"
-                                   >
-                                     ↓ Зняти
-                                   </button>
-                                 )}
-                               </>
-                            ) : (
-                               <>
-                                 {isOwner && (
-                                   <button 
-                                     onClick={() => handlePromoteMember(member.id)}
-                                     className="text-theme-secondary bg-theme-secondary/10 hover:bg-theme-secondary/20 px-2 py-1 rounded text-xs transition-colors mr-2" 
-                                     title="Зробити адміністратором"
-                                   >
-                                     ↑ Адмін
-                                   </button>
-                                 )}
-                               </>
-                            )}
-
-                            <button 
-                              onClick={() => handleRemoveMember(member.id)}
-                              className="text-red-500 hover:text-red-700 px-2 py-1 rounded text-lg font-bold transition-colors" 
-                              title="Видалити з клубу"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {isOwner && (
-                  <div className="mt-12 border-t border-red-500/20 pt-6">
-                    <button className="w-full py-3 border border-red-500 text-red-500 font-bold rounded-lg hover:bg-red-500 hover:text-white transition-colors">
-                      Видалити клуб назавжди
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {isOwner && (
-                <div className="col-span-1 md:col-span-2 border-t border-theme-secondary/10 pt-8 mt-2">
-                  <h3 className="text-xl font-bold text-theme-secondary mb-4">Права адміністраторів</h3>
-                  <p className="text-sm opacity-70 mb-6 text-theme-secondary">
-                    Оберіть, що дозволено робити адміністраторам клубу (ці налаштування не стосуються власника):
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                     <label className="flex items-start gap-3 cursor-pointer group">
-                       <input 
-                         type="checkbox" 
-                         checked={settingsData.admin_can_edit_design} 
-                         onChange={(e) => setSettingsData({...settingsData, admin_can_edit_design: e.target.checked})} 
-                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
-                       />
-                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Редагувати дизайн простору клубу</span>
-                     </label>
-                     <label className="flex items-start gap-3 cursor-pointer group">
-                       <input 
-                         type="checkbox" 
-                         checked={settingsData.admin_can_manage_books} 
-                         onChange={(e) => setSettingsData({...settingsData, admin_can_manage_books: e.target.checked})} 
-                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
-                       />
-                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Керувати полицею (додавати/видаляти книги)</span>
-                     </label>
-                     <label className="flex items-start gap-3 cursor-pointer group">
-                       <input 
-                         type="checkbox" 
-                         checked={settingsData.admin_can_remove_members} 
-                         onChange={(e) => setSettingsData({...settingsData, admin_can_remove_members: e.target.checked})} 
-                         className="w-5 h-5 mt-0.5 accent-theme-secondary" 
-                       />
-                       <span className="text-theme-secondary font-medium group-hover:opacity-80 transition-opacity">Видаляти звичайних учасників</span>
-                     </label>
-                  </div>
-                  
-                  <button 
-                    onClick={handleSaveSettings} 
-                    className="mt-8 px-8 py-2 bg-theme-secondary/10 border border-theme-secondary/30 text-theme-secondary font-bold rounded-lg hover:bg-theme-secondary hover:text-theme-primary transition-colors shadow-sm"
-                  >
-                    Зберегти права
-                  </button>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
+         <ClubSettings 
+            club={club}
+            settingsData={settingsData}
+            setSettingsData={setSettingsData}
+            clubBooks={clubBooks}
+            joinRequests={joinRequests}
+            members={members}
+            isOwner={isOwner}
+            handleSaveSettings={handleSaveSettings}
+            handleRequestAction={handleRequestAction}
+            handleRemoveMember={handleRemoveMember}
+            handlePromoteMember={handlePromoteMember}
+            handleDemoteMember={handleDemoteMember}
+         />
       )}
-
-      {isAddBookModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-theme-primary text-theme-secondary p-8 rounded-2xl shadow-2xl w-full max-w-lg border border-theme-secondary/10 relative flex flex-col max-h-[80vh]">
-            <button 
-              onClick={() => { setIsAddBookModalOpen(false); setSearchQuery(''); }} 
-              className="absolute top-4 right-5 text-2xl opacity-60 hover:opacity-100 transition-opacity"
-            >
-              &times;
-            </button>
-            <h2 className="text-2xl font-serif font-bold italic text-center mb-6 shrink-0">Додати книгу в клуб</h2>
-            
-            <div className="mb-4 shrink-0">
-              <input 
-                type="text" 
-                placeholder="Введіть назву книги або автора..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-theme-background border border-theme-secondary/30 rounded-lg px-4 py-3 focus:outline-none focus:border-theme-secondary transition-colors"
-              />
-            </div>
-
-            <div className="flex-grow overflow-y-auto pr-2 mb-6 min-h-[200px]">
-              {searchQuery.length > 2 ? (
-                searchResults.length > 0 ? (
-                  <div className="flex flex-col gap-3">
-                    {searchResults.map(book => (
-                      <div key={book.id} className="flex items-center justify-between p-3 bg-theme-background rounded-lg border border-theme-secondary/10">
-                        <div>
-                          <h4 className="font-bold font-serif text-theme-secondary">{book.title}</h4>
-                          <p className="text-sm opacity-70 text-theme-secondary">{book.author}</p>
-                        </div>
-                        <button 
-                          onClick={() => handleAddBook(book)}
-                          className="px-4 py-1.5 bg-theme-secondary text-theme-primary rounded font-bold hover:opacity-90 transition-opacity text-sm"
-                        >
-                          Додати
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center opacity-70 mt-8">Книг не знайдено...</p>
-                )
-              ) : (
-                <p className="text-center opacity-70 mt-8">Почніть вводити назву (мінімум 3 літери)...</p>
-              )}
-            </div>
-            
-            <button 
-              onClick={() => { setIsAddBookModalOpen(false); setSearchQuery(''); }}
-              className="w-full bg-theme-secondary/10 text-theme-secondary border border-theme-secondary/20 font-bold font-serif py-3 rounded-lg hover:bg-theme-secondary/20 transition-colors shadow-sm shrink-0"
-            >
-              Закрити
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

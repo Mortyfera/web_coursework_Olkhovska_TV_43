@@ -21,11 +21,27 @@ export default function NewsSection({ setCurrentPage, setSelectedArticle }) {
       });
   }, []);
 
+  const formatDateToUkrainian = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString; 
+      
+      return date.toLocaleDateString('uk-UA', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   return (
     <section className="w-full bg-theme-secondary py-16 mt-8 transition-colors duration-500">
       <div className="container mx-auto px-4 max-w-6xl">
         <h2 className="text-3xl sm:text-4xl font-bold italic font-serif text-center mb-12 text-theme-primary transition-colors duration-500">
-          Latest Book World News
+          Останні новини книжкового світу
         </h2>
 
         {isLoading && <p className="text-center text-theme-primary italic opacity-80">Підвантажуємо новини з бази...</p>}
@@ -46,7 +62,7 @@ export default function NewsSection({ setCurrentPage, setSelectedArticle }) {
                   {item.title}
                 </h3>
                 <p className="text-sm mb-4 opacity-70">
-                  {item.date}
+                  {formatDateToUkrainian(item.date)}
                 </p>
                 <p className="leading-relaxed flex-grow opacity-80">
                   <span dangerouslySetInnerHTML={{ __html: item.summary || item.content?.substring(0, 150) + '...' }} />
@@ -65,7 +81,7 @@ export default function NewsSection({ setCurrentPage, setSelectedArticle }) {
               }}
               className="bg-theme-primary text-theme-secondary font-bold font-serif px-8 py-3 rounded-md hover:opacity-80 transition-all shadow-md"
             >
-              View All News
+              Переглянути всі новини
             </button>
           </div>
         )}

@@ -4,21 +4,21 @@
 
 @layer base {
   :root {
-    --color-primary: #FFC7A5;   
-    --color-secondary: #4C5A4E; 
-    --color-background: #ffffff; 
-  }
-
-  [data-theme="plum-parchment"] {
     --color-primary: #CAD183;   
     --color-secondary: #66023C; 
     --color-background: #ffffff;
   }
 
-  [data-theme="midnight-lamp"] {
-    --color-primary: #003631;   
-    --color-secondary: #FFEDA8; 
-    --color-background: #001513;
+  [data-theme="vintage-cover"] {
+    --color-primary: #FFC7A5;   
+    --color-secondary: #4C5A4E; 
+    --color-background: #ffffff;
+  }
+
+  [data-theme="peach-garden"] {
+    --color-primary: #f8eec2;   
+    --color-secondary: #d8918f; 
+    --color-background: #f9ead2;
   }
 
   [data-theme="chapter-by-the-sea"] {
@@ -30,7 +30,7 @@
   [data-theme="rainy-romance"] {
     --color-primary: #7D99A3;   
     --color-secondary: #FFCDC1; 
-    --color-background: #1A2429;
+    --color-background: #f8eec2;
   }
 
   [data-theme="morning-pages"] {
@@ -45,34 +45,34 @@
     --color-background: #F9F9F9;
   }
 
-  [data-theme="old-library"] {
-    --color-primary: #37585B;   
-    --color-secondary: #DDA15E; 
-    --color-background: #111C1D;
+  [data-theme="pink-skies"] {
+    --color-primary: #f2aebc;   
+    --color-secondary: #3d5d91; 
+    --color-background: #f2dcdb;
   }
 
-  [data-theme="terracotta-tales"] {
-    --color-primary: #E2725B;   
-    --color-secondary: #F7E7CE; 
-    --color-background: #2C130E;
+  [data-theme="fey-garden"] {
+    --color-primary: #f8cac4;   
+    --color-secondary: #447a5f; 
+    --color-background: #cfdd9d;
   }
 
-  [data-theme="velvet-bookmark"] {
-    --color-primary: #CB4154;   
-    --color-secondary: #FAF0E6; 
-    --color-background: #2B0D11;
+  [data-theme="wisteria-breeze"] {
+    --color-primary: #283f76;   
+    --color-secondary: #2c9fc7; 
+    --color-background: #f5ecd2;
   }
 
-  [data-theme="golden-hour"] {
-    --color-primary: #FFBF00;   
-    --color-secondary: #EEFAFE; 
-    --color-background: #291E00;
+  [data-theme="lavander-bloom"] {
+    --color-primary: #2c0415;   
+    --color-secondary: #b175a5; 
+    --color-background: #dfbbca;
   }
 
   [data-theme="olive-grove"] {
     --color-primary: #6B8E23;   
-    --color-secondary: #F7E7CE; 
-    --color-background: #1B2408;
+    --color-secondary: #FFCDC1; 
+    --color-background: #FAFAFA;
   }
 
   [data-theme="dark-academia"] {
